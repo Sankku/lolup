@@ -154,15 +154,15 @@ fn demo_response(path: &str) -> Result<Value, String> {
             }));
         }
         "/lol-gameflow/v1/gameflow-phase" => return Ok(json!("ChampSelect")),
-        "/lol-champ-select/v1/session" => include_str!("../fixtures/session.json"),
-        "/lol-ranked/v1/current-ranked-stats" => include_str!("../fixtures/ranked.json"),
-        "/lol-champion-mastery/v1/local-player/champion-mastery" => include_str!("../fixtures/mastery.json"),
-        "/lol-game-data/assets/v1/champion-summary.json" => include_str!("../fixtures/champions.json"),
+        "/lol-champ-select/v1/session" => include_str!("../../crates/core/fixtures/session.json"),
+        "/lol-ranked/v1/current-ranked-stats" => include_str!("../../crates/core/fixtures/ranked.json"),
+        "/lol-champion-mastery/v1/local-player/champion-mastery" => include_str!("../../crates/core/fixtures/mastery.json"),
+        "/lol-game-data/assets/v1/champion-summary.json" => include_str!("../../crates/core/fixtures/champions.json"),
         "/lol-game-data/assets/v1/perkstyles.json" => return Ok(json!({ "styles": [] })),
         p if p.starts_with(ASSETS) => return Ok(json!([])),
-        p if p.starts_with("/lol-match-history/v1/game-timelines/") => include_str!("../fixtures/timeline.json"),
-        p if p.starts_with("/lol-match-history/v1/products/") => include_str!("../fixtures/history.json"),
-        p if p.starts_with("/lol-match-history/v1/games/") => include_str!("../fixtures/game.json"),
+        p if p.starts_with("/lol-match-history/v1/game-timelines/") => include_str!("../../crates/core/fixtures/timeline.json"),
+        p if p.starts_with("/lol-match-history/v1/products/") => include_str!("../../crates/core/fixtures/history.json"),
+        p if p.starts_with("/lol-match-history/v1/games/") => include_str!("../../crates/core/fixtures/game.json"),
         _ => return Err("Sin datos de ejemplo.".into()),
     };
     serde_json::from_str(text).map_err(|e| e.to_string())

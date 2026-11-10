@@ -172,3 +172,51 @@ Los emblemas gráficos de rango no se pudieron obtener por rutas públicas del c
 | El costo de la IA supera el margen | Límites mensuales y evaluación de modelos |
 | Competidores gratuitos | Competir en calidad del análisis, medida con usuarios reales |
 | El formato de datos cambia sin aviso | Fixtures y tests, y errores claros en la interfaz |
+
+## 11. Versión web
+
+Decisión del 2026-11-10: la web tiene que ofrecer lo mismo que la app de escritorio, usable como OP.GG o DPM, para cualquier jugador buscado por su Riot ID.
+
+### Por qué es otro producto técnico
+
+La app de escritorio lee el cliente local y solo ve tu cuenta. La web no puede leer ese cliente: necesita la API oficial de Riot, un servidor que guarde la key y una base de datos para cachear partidas y respetar los límites de uso. Para un sitio público, Riot exige la key de producción.
+
+### Paridad
+
+| Función de escritorio | En la web | Fuente |
+|---|---|---|
+| Perfil, rango, LP actual | Sí, para cualquier Riot ID | Account-V1, Summoner-V4, League-V4 |
+| Maestría | Sí | Champion-Mastery-V4 |
+| Historial con filtros por cola | Sí, con más partidas que las 20 del cliente | Match-V5 |
+| Marcador de 10 jugadores | Sí | Match-V5 |
+| Ventaja de oro, eventos y minutos clave | Sí, con posiciones fiables (`teamPosition`) | Match-V5 timeline |
+| Orden de objetos y habilidades | Sí, nuevo respecto de escritorio | Match-V5 timeline, a confirmar con la key |
+| Evolución de LP | Desde la primera vez que alguien busca ese perfil | Instantáneas guardadas en el servidor |
+| Revisión con IA | Sí, a través del servidor y con límite mensual | Mismo prompt, sin identidades |
+| Plan previo y overlay | No: necesitan el cliente local | Solo escritorio |
+| Partidas personalizadas | Solo si el jugador lo autoriza | Regla de Riot |
+
+### Arquitectura propuesta
+
+- **Interfaz:** la misma app de React, con una capa de datos que en escritorio llama a Tauri y en la web llama al servidor. Las vistas no se duplican.
+- **Lógica compartida:** un crate de Rust común para los cálculos (resúmenes, minutos clave, eventos, LP), con dos adaptadores de entrada: cliente local y Match-V5.
+- **Servidor:** Rust con axum, la key de Riot en variables de entorno, caché en SQLite y reintentos ante los límites de Riot. Las partidas no cambian, así que se guardan una sola vez. Postgres entra cuando haga falta más de una instancia.
+- **Hosting:** la interfaz sigue en Vercel. El servidor necesita estado y tareas continuas, así que va mejor en un hosting de contenedores como Fly.io o Railway, junto a Postgres. Falta decidir.
+
+### Restricciones
+
+- Mientras no haya key de producción, la web solo puede usarse en desarrollo con la key personal, que vence cada 24 horas y no se puede exponer al público.
+- La política de privacidad tiene que cubrir los datos públicos de jugadores que guarda el servidor antes de abrir la web.
+- No se agregan scouting en partida ni datos de partidas en curso.
+
+### Hitos web
+
+| Hito | Resultado |
+|---|---|
+| W1 | Crate compartido y adaptador de Match-V5 con datos de prueba |
+| W2 | Servidor con key personal: búsqueda por Riot ID, perfil e historial en local |
+| W3 | Detalle de partida, línea de tiempo y build |
+| W4 | Caché, límites de uso e instantáneas de LP |
+| W5 | Despliegue privado, y público cuando Riot apruebe la key de producción |
+
+Estado al 2026-11-10: W1 a W4 funcionan en local con la key personal. Falta una cola por región para los límites de uso, y W5.

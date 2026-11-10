@@ -26,6 +26,8 @@ export type Profile = {
   tag: string
   level: number
   iconId: number
+  /** Solo en la web: la imagen viene de Data Dragon. */
+  iconUrl?: string
   solo: Rank | null
   flex: Rank | null
   mastery: Mastery[]
@@ -105,6 +107,8 @@ export type Detail = {
   rival: string | null
   checkpoints: Checkpoint[]
   events: GameEvent[]
+  build: { minute: number; item: number }[]
+  skills: number[]
 }
 
 function channel(onText: (text: string) => void) {
@@ -113,8 +117,10 @@ function channel(onText: (text: string) => void) {
   return stream
 }
 
-/** Imagen servida por el cliente de League a través del núcleo en Rust. */
-export const assetUrl = (path: string) => convertFileSrc(path, 'lcu')
+export const isDesktop = '__TAURI_INTERNALS__' in window
+
+/** En escritorio las imágenes salen del cliente de League; en la web ya vienen como URL. */
+export const assetUrl = (path: string) => (path.startsWith('http') ? path : convertFileSrc(path, 'lcu'))
 
 export const getStatus = () => invoke<Status>('status')
 export const getCatalog = () => invoke<Catalog>('catalog')
@@ -127,3 +133,18 @@ export const streamReview = (gameId: number, onText: (text: string) => void) =>
   invoke<void>('review', { gameId, onText: channel(onText) })
 export const streamPlan = (onText: (text: string) => void) =>
   invoke<void>('generate_plan', { onText: channel(onText) })
+
+export type WebProfile = { puuid: string; platform: string; profile: Profile; matches: Matches }
+
+async function api<T>(path: string, params: Record<string, string>): Promise<T> {
+  const response = await fetch(`/api/${path}?${new URLSearchParams(params)}`)
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw body.error ?? 'El servidor no respondió.'
+  return body as T
+}
+
+export const web = {
+  catalog: () => api<Catalog>('catalog', {}),
+  profile: (platform: string, name: string, tag: string) => api<WebProfile>('profile', { platform, name, tag }),
+  detail: (platform: string, puuid: string, id: number) => api<Detail>('match', { platform, puuid, id: String(id) }),
+}

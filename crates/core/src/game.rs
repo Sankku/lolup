@@ -1,43 +1,34 @@
-//! Perfil, historial y marcador completo, normalizados para la interfaz.
+//! Modelo común de una partida y los cálculos que se muestran en escritorio y web.
 
-use crate::facts::{Names, name};
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::{BTreeMap, HashMap};
 
-fn int(value: &Value) -> i64 {
+pub type Names = HashMap<i64, String>;
+
+pub fn champion_names(summary: &Value) -> Names {
+    summary
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|c| Some((c["id"].as_i64()?, c["name"].as_str()?.to_string())))
+        .collect()
+}
+
+pub fn name(names: &Names, id: i64) -> String {
+    names.get(&id).cloned().unwrap_or_else(|| format!("Campeón {id}"))
+}
+
+pub(crate) fn int(value: &Value) -> i64 {
     value.as_i64().unwrap_or(0)
 }
 
-fn stat(player: &Value, key: &str) -> i64 {
-    int(&player["stats"][key])
+pub(crate) fn minute_of(milliseconds: i64) -> f64 {
+    (milliseconds as f64 / 6_000.0).round() / 10.0
 }
 
-fn my_index(game: &Value, puuid: &str) -> Option<usize> {
-    game["participantIdentities"]
-        .as_array()?
-        .iter()
-        .position(|i| i["player"]["puuid"].as_str() == Some(puuid))
-}
-
-const SMITE: i64 = 11;
-
-/// ponytail: lane y role del cliente son aproximados: en partidas reales marca dos junglas.
-/// Castigo es la señal fiable de jungla. Reemplazar por teamPosition si aparece.
-fn role(player: &Value) -> &'static str {
-    if player["spell1Id"].as_i64() == Some(SMITE) || player["spell2Id"].as_i64() == Some(SMITE) {
-        return "JUNGLE";
-    }
-    let timeline = &player["timeline"];
-    if timeline["role"] == "SUPPORT" {
-        return "SUPPORT";
-    }
-    match timeline["lane"].as_str() {
-        Some("TOP") => "TOP",
-        Some("MIDDLE") | Some("MID") => "MIDDLE",
-        Some("BOTTOM") | Some("BOT") => "BOTTOM",
-        _ => "UNKNOWN",
-    }
+pub(crate) fn minutes_from_seconds(seconds: f64) -> f64 {
+    (seconds / 6.0).round() / 10.0
 }
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
@@ -60,24 +51,43 @@ pub struct Loadout {
     pub role: &'static str,
 }
 
-fn loadout(player: &Value, names: &Names) -> Loadout {
-    let champion_id = int(&player["championId"]);
-    Loadout {
-        champion_id,
-        champion: name(names, champion_id),
-        level: stat(player, "champLevel"),
-        items: (0..7).map(|i| stat(player, &format!("item{i}"))).collect(),
-        spells: vec![int(&player["spell1Id"]), int(&player["spell2Id"])],
-        keystone: stat(player, "perk0"),
-        sub_style: stat(player, "perkSubStyle"),
-        kills: stat(player, "kills"),
-        deaths: stat(player, "deaths"),
-        assists: stat(player, "assists"),
-        damage: stat(player, "totalDamageDealtToChampions"),
-        gold: stat(player, "goldEarned"),
-        cs: stat(player, "totalMinionsKilled") + stat(player, "neutralMinionsKilled"),
-        vision: stat(player, "visionScore"),
-        role: role(player),
+/// Un jugador tal como lo entregan las fuentes, antes de armar las vistas.
+#[derive(Debug, Clone)]
+pub struct Participant {
+    pub id: i64,
+    pub team: i64,
+    pub puuid: String,
+    pub name: String,
+    pub win: bool,
+    pub remake: bool,
+    pub loadout: Loadout,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Objectives {
+    pub team: i64,
+    pub barons: i64,
+    pub dragons: i64,
+    pub heralds: i64,
+    pub grubs: i64,
+    pub towers: i64,
+    pub inhibitors: i64,
+    pub bans: Vec<i64>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Game {
+    pub id: i64,
+    pub minutes: f64,
+    pub queue_id: i64,
+    pub created_ms: i64,
+    pub participants: Vec<Participant>,
+    pub objectives: Vec<Objectives>,
+}
+
+impl Game {
+    fn player(&self, puuid: &str) -> Option<&Participant> {
+        self.participants.iter().find(|p| p.puuid == puuid)
     }
 }
 
@@ -94,28 +104,17 @@ pub struct MatchRow {
     pub player: Loadout,
 }
 
-fn minutes(game: &Value) -> f64 {
-    (game["gameDuration"].as_f64().unwrap_or(0.0) / 6.0).round() / 10.0
-}
-
-pub fn match_rows(history: &Value, puuid: &str, names: &Names) -> Vec<MatchRow> {
-    history["games"]["games"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|game| {
-            let me = game["participants"].get(my_index(game, puuid)?)?;
-            Some(MatchRow {
-                game_id: game["gameId"].as_i64()?,
-                win: me["stats"]["win"].as_bool()?,
-                remake: me["stats"]["gameEndedInEarlySurrender"].as_bool().unwrap_or(false),
-                minutes: minutes(game),
-                queue_id: int(&game["queueId"]),
-                created_ms: int(&game["gameCreation"]),
-                player: loadout(me, names),
-            })
-        })
-        .collect()
+pub fn row(game: &Game, puuid: &str) -> Option<MatchRow> {
+    let me = game.player(puuid)?;
+    Some(MatchRow {
+        game_id: game.id,
+        win: me.win,
+        remake: me.remake,
+        minutes: game.minutes,
+        queue_id: game.queue_id,
+        created_ms: game.created_ms,
+        player: me.loadout.clone(),
+    })
 }
 
 #[derive(Serialize, Debug, PartialEq)]
@@ -206,7 +205,7 @@ fn summarize(queue_id: Option<i64>, rows: &[&MatchRow]) -> Summary {
     }
 }
 
-/// Un resumen general y uno por cola, para filtrar sin volver a consultar el cliente.
+/// Un resumen general y uno por cola, para filtrar sin volver a consultar la fuente.
 pub fn summaries(rows: &[MatchRow]) -> Vec<Summary> {
     let all: Vec<&MatchRow> = rows.iter().collect();
     let mut queues: Vec<i64> = rows.iter().map(|r| r.queue_id).collect();
@@ -252,20 +251,6 @@ pub struct GoldPoint {
 }
 
 #[derive(Serialize, Debug, PartialEq)]
-#[serde(rename_all = "camelCase")]
-pub struct Detail {
-    pub game_id: i64,
-    pub minutes: f64,
-    pub queue_id: i64,
-    pub created_ms: i64,
-    pub teams: Vec<Team>,
-    pub gold_lead: Vec<GoldPoint>,
-    pub rival: Option<String>,
-    pub checkpoints: Vec<Checkpoint>,
-    pub events: Vec<Event>,
-}
-
-#[derive(Serialize, Debug, PartialEq)]
 pub struct FrameStats {
     pub gold: i64,
     pub cs: i64,
@@ -288,10 +273,53 @@ pub struct Event {
     pub detail: String,
 }
 
+#[derive(Serialize, Debug, PartialEq)]
+pub struct BuildStep {
+    pub minute: f64,
+    pub item: i64,
+}
+
+#[derive(Serialize, Debug, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct Detail {
+    pub game_id: i64,
+    pub minutes: f64,
+    pub queue_id: i64,
+    pub created_ms: i64,
+    pub teams: Vec<Team>,
+    pub gold_lead: Vec<GoldPoint>,
+    pub rival: Option<String>,
+    pub checkpoints: Vec<Checkpoint>,
+    pub events: Vec<Event>,
+    /// Vacíos cuando la fuente no trae compras ni subidas de nivel, como el cliente local.
+    pub build: Vec<BuildStep>,
+    pub skills: Vec<i64>,
+}
+
 const CHECKPOINT_MINUTES: [i64; 3] = [10, 15, 20];
 
-fn minute_of(milliseconds: i64) -> f64 {
-    (milliseconds as f64 / 6_000.0).round() / 10.0
+fn timeline_events(frames: &[Value]) -> impl Iterator<Item = &Value> {
+    frames.iter().flat_map(|f| f["events"].as_array().into_iter().flatten())
+}
+
+/// Diferencia de oro desde el punto de vista del equipo del jugador.
+fn gold_lead(frames: &[Value], team_of: &HashMap<i64, i64>, my_team: i64) -> Vec<GoldPoint> {
+    frames
+        .iter()
+        .map(|frame| {
+            let lead = frame["participantFrames"]
+                .as_object()
+                .into_iter()
+                .flat_map(|players| players.values())
+                .map(|p| {
+                    let gold = int(&p["totalGold"]);
+                    if team_of.get(&int(&p["participantId"])) == Some(&my_team) { gold } else { -gold }
+                })
+                .sum();
+            // El último cuadro cae a mitad de minuto: truncarlo dibuja un salto vertical.
+            GoldPoint { minute: minute_of(int(&frame["timestamp"])), lead }
+        })
+        .collect()
 }
 
 fn frame_stats(frame: &Value, participant: i64) -> Option<FrameStats> {
@@ -304,8 +332,7 @@ fn frame_stats(frame: &Value, participant: i64) -> Option<FrameStats> {
     })
 }
 
-fn checkpoints(timeline: &Value, me: i64, rival: Option<i64>) -> Vec<Checkpoint> {
-    let frames = timeline["frames"].as_array().map(Vec::as_slice).unwrap_or_default();
+fn checkpoints(frames: &[Value], me: i64, rival: Option<i64>) -> Vec<Checkpoint> {
     CHECKPOINT_MINUTES
         .iter()
         .filter_map(|minute| {
@@ -320,10 +347,9 @@ fn checkpoints(timeline: &Value, me: i64, rival: Option<i64>) -> Vec<Checkpoint>
 }
 
 /// Asesinatos propios y objetivos de ambos equipos, en orden de partida.
-fn events(timeline: &Value, me: i64, my_team: i64, team_of: &HashMap<i64, i64>) -> Vec<Event> {
-    let frames = timeline["frames"].as_array().map(Vec::as_slice).unwrap_or_default();
+fn events(frames: &[Value], me: i64, my_team: i64, team_of: &HashMap<i64, i64>) -> Vec<Event> {
     let mut list = Vec::new();
-    for event in frames.iter().flat_map(|f| f["events"].as_array().into_iter().flatten()) {
+    for event in timeline_events(frames) {
         let minute = minute_of(int(&event["timestamp"]));
         let killer = int(&event["killerId"]);
         let by_my_team = team_of.get(&killer) == Some(&my_team);
@@ -358,112 +384,93 @@ fn events(timeline: &Value, me: i64, my_team: i64, team_of: &HashMap<i64, i64>) 
     list
 }
 
-fn player_name(identity: &Value) -> String {
-    let player = &identity["player"];
-    match (player["gameName"].as_str(), player["tagLine"].as_str()) {
-        (Some(name), Some(tag)) if !name.is_empty() => format!("{name}#{tag}"),
-        _ => player["summonerName"].as_str().unwrap_or("Jugador").to_string(),
+/// Compras y habilidades del jugador. Una compra deshecha se quita.
+fn build_and_skills(frames: &[Value], me: i64) -> (Vec<BuildStep>, Vec<i64>) {
+    let (mut build, mut skills) = (Vec::new(), Vec::new());
+    for event in timeline_events(frames).filter(|e| int(&e["participantId"]) == me) {
+        match event["type"].as_str() {
+            Some("ITEM_PURCHASED") => build.push(BuildStep {
+                minute: minute_of(int(&event["timestamp"])),
+                item: int(&event["itemId"]),
+            }),
+            Some("ITEM_UNDO") => {
+                let undone = int(&event["beforeId"]);
+                if let Some(index) = build.iter().rposition(|step| step.item == undone) {
+                    build.remove(index);
+                }
+            }
+            // Las evoluciones de habilidades no son un punto de habilidad.
+            Some("SKILL_LEVEL_UP") if event["levelUpType"] != "EVOLVE" => skills.push(int(&event["skillSlot"])),
+            _ => {}
+        }
     }
+    (build, skills)
 }
 
-/// Diferencia de oro desde el punto de vista del equipo del jugador.
-fn gold_lead(timeline: &Value, team_of: &HashMap<i64, i64>, my_team: i64) -> Vec<GoldPoint> {
-    timeline["frames"]
-        .as_array()
-        .into_iter()
-        .flatten()
-        .map(|frame| {
-            let lead = frame["participantFrames"]
-                .as_object()
-                .into_iter()
-                .flat_map(|players| players.values())
-                .map(|p| {
-                    let gold = int(&p["totalGold"]);
-                    if team_of.get(&int(&p["participantId"])) == Some(&my_team) { gold } else { -gold }
-                })
-                .sum();
-            // El último cuadro cae a mitad de minuto: truncarlo dibuja un salto vertical.
-            GoldPoint { minute: minute_of(int(&frame["timestamp"])), lead }
-        })
-        .collect()
-}
-
-pub fn match_detail(game: &Value, timeline: Option<&Value>, puuid: &str, names: &Names) -> Result<Detail, String> {
-    let my_index = my_index(game, puuid).ok_or("No se encontró al jugador en la partida.")?;
-    let players = game["participants"].as_array().ok_or("Partida sin participantes.")?;
-    let identities = game["participantIdentities"].as_array().ok_or("Partida sin jugadores.")?;
-    let me = players.get(my_index).ok_or("Partida incompleta.")?;
-    let my_team = int(&me["teamId"]);
-    let me_id = int(&me["participantId"]);
-    let team_of: HashMap<i64, i64> =
-        players.iter().map(|p| (int(&p["participantId"]), int(&p["teamId"]))).collect();
+pub fn detail(game: &Game, frames: Option<&[Value]>, puuid: &str) -> Result<Detail, String> {
+    let me = game.player(puuid).ok_or("No se encontró al jugador en la partida.")?;
+    let team_of: HashMap<i64, i64> = game.participants.iter().map(|p| (p.id, p.team)).collect();
 
     // Solo hay rival si la posición es inequívoca en ambos equipos.
-    let my_role = role(me);
-    let same_role = |team_is_mine: bool| -> Vec<&Value> {
-        players.iter().filter(|p| role(p) == my_role && (int(&p["teamId"]) == my_team) == team_is_mine).collect()
+    let role = me.loadout.role;
+    let same_role = |mine: bool| -> Vec<&Participant> {
+        game.participants.iter().filter(|p| p.loadout.role == role && (p.team == me.team) == mine).collect()
     };
-    let rival = match (my_role, same_role(true).len(), same_role(false).as_slice()) {
+    let rival = match (role, same_role(true).len(), same_role(false).as_slice()) {
         ("UNKNOWN", _, _) => None,
         (_, 1, [player]) => Some(*player),
         _ => None,
     };
 
-    let mut teams: Vec<&Value> = game["teams"].as_array().ok_or("Partida sin equipos.")?.iter().collect();
-    teams.sort_by_key(|team| int(&team["teamId"]) != my_team);
+    let mut objectives = game.objectives.clone();
+    if objectives.is_empty() {
+        let mut teams: Vec<i64> = game.participants.iter().map(|p| p.team).collect();
+        teams.dedup();
+        objectives = teams.into_iter().map(|team| Objectives { team, ..Default::default() }).collect();
+    }
+    objectives.sort_by_key(|o| o.team != me.team);
 
-    let teams = teams
+    let teams = objectives
         .into_iter()
-        .map(|team| {
-            let id = int(&team["teamId"]);
-            let roster: Vec<(usize, &Value)> =
-                players.iter().enumerate().filter(|(_, p)| int(&p["teamId"]) == id).collect();
-            let list: Vec<Player> = roster
-                .iter()
-                .map(|(index, p)| Player {
-                    name: identities.get(*index).map(player_name).unwrap_or_else(|| "Jugador".into()),
-                    me: *index == my_index,
-                    stats: loadout(p, names),
-                })
-                .collect();
+        .map(|o| {
+            let roster: Vec<&Participant> = game.participants.iter().filter(|p| p.team == o.team).collect();
             Team {
-                win: roster.first().is_some_and(|(_, p)| p["stats"]["win"].as_bool() == Some(true)),
-                kills: list.iter().map(|p| p.stats.kills).sum(),
-                gold: list.iter().map(|p| p.stats.gold).sum(),
-                barons: int(&team["baronKills"]),
-                dragons: int(&team["dragonKills"]),
-                heralds: int(&team["riftHeraldKills"]),
-                grubs: int(&team["hordeKills"]),
-                towers: int(&team["towerKills"]),
-                inhibitors: int(&team["inhibitorKills"]),
-                bans: team["bans"]
-                    .as_array()
-                    .into_iter()
-                    .flatten()
-                    .map(|b| int(&b["championId"]))
-                    .filter(|id| *id > 0)
+                win: roster.first().is_some_and(|p| p.win),
+                kills: roster.iter().map(|p| p.loadout.kills).sum(),
+                gold: roster.iter().map(|p| p.loadout.gold).sum(),
+                barons: o.barons,
+                dragons: o.dragons,
+                heralds: o.heralds,
+                grubs: o.grubs,
+                towers: o.towers,
+                inhibitors: o.inhibitors,
+                bans: o.bans,
+                players: roster
+                    .iter()
+                    .map(|p| Player { name: p.name.clone(), me: p.puuid == puuid, stats: p.loadout.clone() })
                     .collect(),
-                players: list,
             }
         })
         .collect();
 
+    let frames = frames.unwrap_or_default();
+    let (build, skills) = build_and_skills(frames, me.id);
     Ok(Detail {
-        game_id: int(&game["gameId"]),
-        minutes: minutes(game),
-        queue_id: int(&game["queueId"]),
-        created_ms: int(&game["gameCreation"]),
+        game_id: game.id,
+        minutes: game.minutes,
+        queue_id: game.queue_id,
+        created_ms: game.created_ms,
         teams,
-        gold_lead: timeline.map(|t| gold_lead(t, &team_of, my_team)).unwrap_or_default(),
-        rival: rival.map(|p| name(names, int(&p["championId"]))),
-        checkpoints: timeline
-            .map(|t| checkpoints(t, me_id, rival.map(|p| int(&p["participantId"]))))
-            .unwrap_or_default(),
-        events: timeline.map(|t| events(t, me_id, my_team, &team_of)).unwrap_or_default(),
+        gold_lead: gold_lead(frames, &team_of, me.team),
+        rival: rival.map(|p| p.loadout.champion.clone()),
+        checkpoints: checkpoints(frames, me.id, rival.map(|p| p.id)),
+        events: events(frames, me.id, me.team, &team_of),
+        build,
+        skills,
     })
 }
 
-#[derive(Serialize, Debug, PartialEq)]
+#[derive(Serialize, Debug, Clone, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct Rank {
     pub tier: String,
@@ -471,18 +478,6 @@ pub struct Rank {
     pub lp: i64,
     pub wins: i64,
     pub losses: i64,
-}
-
-pub fn rank(ranked: &Value, queue: &str) -> Option<Rank> {
-    let entry = &ranked["queueMap"][queue];
-    let tier = entry["tier"].as_str().filter(|t| !t.is_empty() && *t != "NONE" && *t != "UNRANKED")?;
-    Some(Rank {
-        tier: tier.to_string(),
-        division: entry["division"].as_str().filter(|d| *d != "NA").unwrap_or("").to_string(),
-        lp: int(&entry["leaguePoints"]),
-        wins: int(&entry["wins"]),
-        losses: int(&entry["losses"]),
-    })
 }
 
 #[derive(Serialize, Debug, PartialEq)]
@@ -494,6 +489,7 @@ pub struct Mastery {
     pub points: i64,
 }
 
+/// El cliente local y Champion-Mastery-V4 usan los mismos nombres de campo.
 pub fn top_mastery(list: &Value, names: &Names, limit: usize) -> Vec<Mastery> {
     let mut rows: Vec<Mastery> = list
         .as_array()
@@ -512,27 +508,27 @@ pub fn top_mastery(list: &Value, names: &Names, limit: usize) -> Vec<Mastery> {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
-    use crate::facts::champion_names;
     use serde_json::json;
 
-    fn fixture(text: &str) -> Value {
+    pub fn fixture(text: &str) -> Value {
         serde_json::from_str(text).unwrap()
     }
 
-    fn names() -> Names {
+    pub fn names() -> Names {
         champion_names(&fixture(include_str!("../fixtures/champions.json")))
     }
 
     fn rows() -> Vec<MatchRow> {
-        match_rows(&fixture(include_str!("../fixtures/history.json")), "demo-me", &names())
+        let history = fixture(include_str!("../fixtures/history.json"));
+        crate::lcu::history(&history, &names()).iter().filter_map(|g| row(g, "demo-me")).collect()
     }
 
-    fn detail() -> Detail {
-        let game = fixture(include_str!("../fixtures/game.json"));
+    pub fn lcu_detail() -> Detail {
+        let game = crate::lcu::game(&fixture(include_str!("../fixtures/game.json")), &names()).unwrap();
         let timeline = fixture(include_str!("../fixtures/timeline.json"));
-        match_detail(&game, Some(&timeline), "demo-me", &names()).unwrap()
+        detail(&game, Some(crate::lcu::frames(&timeline)), "demo-me").unwrap()
     }
 
     #[test]
@@ -542,7 +538,7 @@ mod tests {
         assert_eq!(rows[0].player.champion, "Ahri");
         assert_eq!(rows[0].player.items.len(), 7);
         let history = fixture(include_str!("../fixtures/history.json"));
-        assert!(match_rows(&history, "otro", &names()).is_empty());
+        assert!(crate::lcu::history(&history, &names()).iter().all(|g| row(g, "otro").is_none()));
     }
 
     #[test]
@@ -576,7 +572,7 @@ mod tests {
 
     #[test]
     fn detail_puts_my_team_first_and_marks_me() {
-        let d = detail();
+        let d = lcu_detail();
         assert_eq!(d.teams[0].players.iter().filter(|p| p.me).count(), 1);
         assert_eq!(d.teams[1].players.iter().filter(|p| p.me).count(), 0);
         assert!(!d.teams[0].win);
@@ -589,7 +585,7 @@ mod tests {
 
     #[test]
     fn gold_lead_is_from_my_team_point_of_view() {
-        let d = detail();
+        let d = lcu_detail();
         assert_eq!(d.gold_lead.first().unwrap(), &GoldPoint { minute: 0.0, lead: 0 });
         assert_eq!(d.gold_lead[1], GoldPoint { minute: 5.0, lead: 500 });
         assert_eq!(d.gold_lead.last().unwrap(), &GoldPoint { minute: 30.0, lead: -7000 });
@@ -597,16 +593,14 @@ mod tests {
 
     #[test]
     fn detail_survives_a_missing_timeline() {
-        let game = fixture(include_str!("../fixtures/game.json"));
-        let d = match_detail(&game, None, "demo-me", &names()).unwrap();
-        assert!(d.gold_lead.is_empty());
-        assert!(d.checkpoints.is_empty());
-        assert!(d.events.is_empty());
+        let game = crate::lcu::game(&fixture(include_str!("../fixtures/game.json")), &names()).unwrap();
+        let d = detail(&game, None, "demo-me").unwrap();
+        assert!(d.gold_lead.is_empty() && d.checkpoints.is_empty() && d.events.is_empty() && d.build.is_empty());
     }
 
     #[test]
     fn checkpoints_compare_me_with_my_lane_rival() {
-        let d = detail();
+        let d = lcu_detail();
         assert_eq!(d.rival.as_deref(), Some("Yasuo"));
         assert_eq!(d.checkpoints.iter().map(|c| c.minute).collect::<Vec<_>>(), [10, 15, 20]);
         let ten = &d.checkpoints[0];
@@ -616,17 +610,18 @@ mod tests {
 
     #[test]
     fn no_rival_when_the_role_is_ambiguous() {
-        let mut game = fixture(include_str!("../fixtures/game.json"));
-        game["participants"][7]["timeline"] = json!({ "lane": "MIDDLE", "role": "DUO" });
+        let mut raw = fixture(include_str!("../fixtures/game.json"));
+        raw["participants"][7]["timeline"] = json!({ "lane": "MIDDLE", "role": "DUO" });
+        let game = crate::lcu::game(&raw, &names()).unwrap();
         let timeline = fixture(include_str!("../fixtures/timeline.json"));
-        let d = match_detail(&game, Some(&timeline), "demo-me", &names()).unwrap();
+        let d = detail(&game, Some(crate::lcu::frames(&timeline)), "demo-me").unwrap();
         assert_eq!(d.rival, None);
         assert!(d.checkpoints.iter().all(|c| c.rival.is_none()));
     }
 
     #[test]
     fn events_attribute_objectives_to_the_right_team() {
-        let events = detail().events;
+        let events = lcu_detail().events;
         let kinds: Vec<(&str, bool)> = events.iter().map(|e| (e.kind, e.mine)).collect();
         assert_eq!(
             kinds,
@@ -644,31 +639,20 @@ mod tests {
     }
 
     #[test]
-    fn jungler_needs_smite() {
-        let with = json!({ "spell1Id": 4, "spell2Id": 11, "timeline": { "lane": "TOP", "role": "SOLO" } });
-        let without = json!({ "spell1Id": 4, "spell2Id": 14, "timeline": { "lane": "JUNGLE", "role": "NONE" } });
-        assert_eq!(role(&with), "JUNGLE");
-        assert_eq!(role(&without), "UNKNOWN");
-    }
-
-    #[test]
-    fn reads_ranks_and_hides_unranked() {
-        let ranked = json!({ "queueMap": {
-            "RANKED_SOLO_5x5": { "tier": "GOLD", "division": "II", "leaguePoints": 40, "wins": 10, "losses": 8 },
-            "RANKED_FLEX_SR": { "tier": "MASTER", "division": "NA", "leaguePoints": 5 },
-            "OTHER": { "tier": "" }
-        }});
-        assert_eq!(rank(&ranked, "RANKED_SOLO_5x5").unwrap().division, "II");
-        assert_eq!(rank(&ranked, "RANKED_FLEX_SR").unwrap().division, "");
-        assert!(rank(&ranked, "OTHER").is_none());
-        assert!(rank(&ranked, "MISSING").is_none());
-    }
-
-    #[test]
-    fn role_prefers_support_and_tolerates_unknown() {
-        assert_eq!(role(&json!({ "timeline": { "lane": "NONE", "role": "SUPPORT" } })), "SUPPORT");
-        assert_eq!(role(&json!({ "timeline": { "lane": "MIDDLE", "role": "SOLO" } })), "MIDDLE");
-        assert_eq!(role(&json!({ "timeline": { "lane": "NONE", "role": "SOLO" } })), "UNKNOWN");
+    fn build_drops_undone_purchases_and_skips_evolutions() {
+        let frames = vec![json!({ "timestamp": 0, "events": [
+            { "type": "ITEM_PURCHASED", "participantId": 1, "itemId": 1056, "timestamp": 20_000 },
+            { "type": "ITEM_PURCHASED", "participantId": 2, "itemId": 1055, "timestamp": 20_000 },
+            { "type": "ITEM_PURCHASED", "participantId": 1, "itemId": 2003, "timestamp": 21_000 },
+            { "type": "ITEM_UNDO", "participantId": 1, "beforeId": 2003, "afterId": 0, "timestamp": 22_000 },
+            { "type": "ITEM_PURCHASED", "participantId": 1, "itemId": 3020, "timestamp": 480_000 },
+            { "type": "SKILL_LEVEL_UP", "participantId": 1, "skillSlot": 1, "levelUpType": "NORMAL" },
+            { "type": "SKILL_LEVEL_UP", "participantId": 1, "skillSlot": 3, "levelUpType": "NORMAL" },
+            { "type": "SKILL_LEVEL_UP", "participantId": 1, "skillSlot": 1, "levelUpType": "EVOLVE" }
+        ]})];
+        let (build, skills) = build_and_skills(&frames, 1);
+        assert_eq!(build, [BuildStep { minute: 0.3, item: 1056 }, BuildStep { minute: 8.0, item: 3020 }]);
+        assert_eq!(skills, [1, 3]);
     }
 
     #[test]

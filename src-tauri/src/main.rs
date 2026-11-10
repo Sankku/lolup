@@ -2,11 +2,11 @@
 
 mod ai;
 mod facts;
-mod history;
 mod lcu;
 mod lp;
 
 use lcu::Lcu;
+use lolup_core::game;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -123,15 +123,15 @@ struct Profile {
     tag: String,
     level: i64,
     icon_id: i64,
-    solo: Option<history::Rank>,
-    flex: Option<history::Rank>,
-    mastery: Vec<history::Mastery>,
+    solo: Option<game::Rank>,
+    flex: Option<game::Rank>,
+    mastery: Vec<game::Mastery>,
     lp_history: Vec<lp::Point>,
 }
 
-fn lp_snapshots(app: &AppHandle, core: &Core, me: &Value, solo: Option<&history::Rank>, flex: Option<&history::Rank>) -> Vec<lp::Snapshot> {
+fn lp_snapshots(app: &AppHandle, core: &Core, me: &Value, solo: Option<&game::Rank>, flex: Option<&game::Rank>) -> Vec<lp::Snapshot> {
     if core.lcu.demo {
-        return serde_json::from_str(include_str!("../fixtures/lp.json")).unwrap_or_default();
+        return serde_json::from_str(include_str!("../../crates/core/fixtures/lp.json")).unwrap_or_default();
     }
     let puuid: String = me["puuid"].as_str().unwrap_or("").chars().filter(|c| c.is_alphanumeric() || *c == '-').collect();
     let Ok(dir) = app.path().app_data_dir() else {
@@ -149,8 +149,8 @@ async fn profile(app: AppHandle, core: State<'_, Core>) -> Result<Profile, Strin
     let ranked = core.lcu.get("/lol-ranked/v1/current-ranked-stats").await?;
     let mastery = core.lcu.get("/lol-champion-mastery/v1/local-player/champion-mastery").await?;
     let names = names(&core.lcu).await?;
-    let solo = history::rank(&ranked, "RANKED_SOLO_5x5");
-    let flex = history::rank(&ranked, "RANKED_FLEX_SR");
+    let solo = lolup_core::lcu::rank(&ranked, "RANKED_SOLO_5x5");
+    let flex = lolup_core::lcu::rank(&ranked, "RANKED_FLEX_SR");
     let snapshots = lp_snapshots(&app, &core, &me, solo.as_ref(), flex.as_ref());
     Ok(Profile {
         name: me["gameName"].as_str().unwrap_or("Invocador").to_string(),
@@ -159,15 +159,15 @@ async fn profile(app: AppHandle, core: State<'_, Core>) -> Result<Profile, Strin
         icon_id: me["profileIconId"].as_i64().unwrap_or(0),
         solo,
         flex,
-        mastery: history::top_mastery(&mastery, &names, 6),
+        mastery: game::top_mastery(&mastery, &names, 6),
         lp_history: lp::points(&snapshots, lp::SOLO),
     })
 }
 
 #[derive(Serialize)]
 struct Matches {
-    rows: Vec<history::MatchRow>,
-    summaries: Vec<history::Summary>,
+    rows: Vec<game::MatchRow>,
+    summaries: Vec<game::Summary>,
 }
 
 #[tauri::command]
@@ -175,18 +175,20 @@ async fn matches(core: State<'_, Core>) -> Result<Matches, String> {
     let puuid = my_puuid(&core.lcu).await?;
     let path = format!("/lol-match-history/v1/products/lol/{puuid}/matches?begIndex=0&endIndex=19");
     let list = core.lcu.get(&path).await?;
-    let rows = history::match_rows(&list, &puuid, &names(&core.lcu).await?);
-    let summaries = history::summaries(&rows);
+    let games = lolup_core::lcu::history(&list, &names(&core.lcu).await?);
+    let rows: Vec<game::MatchRow> = games.iter().filter_map(|g| game::row(g, &puuid)).collect();
+    let summaries = game::summaries(&rows);
     Ok(Matches { rows, summaries })
 }
 
 #[tauri::command]
-async fn match_detail(core: State<'_, Core>, game_id: i64) -> Result<history::Detail, String> {
+async fn match_detail(core: State<'_, Core>, game_id: i64) -> Result<game::Detail, String> {
     let puuid = my_puuid(&core.lcu).await?;
-    let game = core.lcu.get(&format!("/lol-match-history/v1/games/{game_id}")).await?;
+    let raw = core.lcu.get(&format!("/lol-match-history/v1/games/{game_id}")).await?;
     // Sin línea de tiempo la partida se muestra igual, solo falta el gráfico.
     let timeline = core.lcu.get(&format!("/lol-match-history/v1/game-timelines/{game_id}")).await.ok();
-    history::match_detail(&game, timeline.as_ref(), &puuid, &names(&core.lcu).await?)
+    let parsed = lolup_core::lcu::game(&raw, &names(&core.lcu).await?)?;
+    game::detail(&parsed, timeline.as_ref().map(lolup_core::lcu::frames), &puuid)
 }
 
 fn use_demo_ai(core: &Core) -> bool {

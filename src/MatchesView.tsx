@@ -263,6 +263,97 @@ function KeyMinutes(props: { detail: Detail }) {
   )
 }
 
+const SKILL_KEYS = ['Q', 'W', 'E', 'R']
+
+/** Orden en que se maximizan Q, W y E: la que llega antes a 5 puntos va primero. */
+function skillPriority(skills: number[]) {
+  const reachedMax = (slot: number) => {
+    let points = 0
+    const index = skills.findIndex((s) => s === slot && ++points === 5)
+    return index === -1 ? Infinity : index
+  }
+  const count = (slot: number) => skills.filter((s) => s === slot).length
+  return [1, 2, 3]
+    .filter((slot) => count(slot) > 0)
+    .sort((a, b) => reachedMax(a) - reachedMax(b) || count(b) - count(a) || skills.indexOf(a) - skills.indexOf(b))
+    .map((slot) => SKILL_KEYS[slot - 1])
+}
+
+function BuildPanel(props: { catalog: Catalog; build: Detail['build']; skills: number[] }) {
+  const { catalog, build, skills } = props
+  if (build.length === 0 && skills.length === 0) return null
+
+  // Las compras del mismo minuto van juntas, como una vuelta a base.
+  const groups: { minute: number; items: number[] }[] = []
+  for (const step of build) {
+    const minute = Math.floor(step.minute)
+    const last = groups[groups.length - 1]
+    if (last && last.minute === minute) last.items.push(step.item)
+    else groups.push({ minute, items: [step.item] })
+  }
+  const priority = skillPriority(skills)
+
+  return (
+    <section className="rise border border-line bg-ink" style={{ animationDelay: '100ms' }}>
+      <header className="border-b border-line px-4 py-2">
+        <h2 className="font-display text-xl font-bold">Tu build</h2>
+      </header>
+      {groups.length > 0 && (
+        <ol className="flex flex-wrap items-start gap-x-2 gap-y-3 px-4 py-3" aria-label="Orden de compra">
+          {groups.map((group, index) => (
+            <li key={index} className="flex items-start gap-2">
+              {index > 0 && <span className="pt-1.5 text-muted" aria-hidden="true">›</span>}
+              <div>
+                <div className="flex gap-0.5">
+                  {group.items.map((item, i) => (
+                    <GameIcon key={i} entry={catalog.items[item]} size={28} />
+                  ))}
+                </div>
+                <p className="mt-0.5 text-center text-xs text-muted tabular-nums">min {group.minute}</p>
+              </div>
+            </li>
+          ))}
+        </ol>
+      )}
+      {skills.length > 0 && (
+        <div className="border-t border-line px-4 py-3">
+          {priority.length > 0 && (
+            <p className="mb-2 text-sm">
+              Prioridad: <span className="font-display text-lg font-bold">{priority.join(' › ')}</span>
+            </p>
+          )}
+          <table className="text-xs tabular-nums" aria-label="Habilidad mejorada en cada nivel">
+            <thead className="sr-only">
+              <tr>
+                <th>Habilidad</th>
+                {skills.map((_, level) => <th key={level}>Nivel {level + 1}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {SKILL_KEYS.map((key, row) => (
+                <tr key={key}>
+                  <th scope="row" className="w-6 pr-2 text-left font-display text-sm font-bold">{key}</th>
+                  {skills.map((slot, level) => (
+                    <td key={level} className="p-px">
+                      <span
+                        className={`flex h-6 w-6 items-center justify-center ${
+                          slot === row + 1 ? (key === 'R' ? 'bg-signal text-ink' : 'bg-paper text-ink') : 'bg-panel text-transparent'
+                        }`}
+                      >
+                        {slot === row + 1 ? level + 1 : '·'}
+                      </span>
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
 function TeamTable(props: { catalog: Catalog; team: Team; title: string; maxDamage: number; minutes: number }) {
   const { catalog, team, maxDamage, minutes } = props
   const outcome = result(team)
@@ -396,8 +487,15 @@ function ReviewPanel(props: { gameId: number }) {
   )
 }
 
-export function MatchDetail(props: { catalog: Catalog; gameId: number; onBack: () => void }) {
-  const { catalog, gameId } = props
+export function MatchDetail(props: {
+  catalog: Catalog
+  gameId: number
+  onBack: () => void
+  /** La web carga la partida desde su servidor; escritorio, desde el cliente. */
+  load?: (gameId: number) => Promise<Detail>
+  review?: boolean
+}) {
+  const { catalog, gameId, load = getDetail, review = true } = props
   const [detail, setDetail] = useState<Detail | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -405,7 +503,7 @@ export function MatchDetail(props: { catalog: Catalog; gameId: number; onBack: (
     let current = true
     setDetail(null)
     setError(null)
-    getDetail(gameId)
+    load(gameId)
       .then((value) => current && setDetail(value))
       .catch((e) => current && setError(typeof e === 'string' ? e : 'No se pudo cargar la partida.'))
     return () => {
@@ -435,10 +533,11 @@ export function MatchDetail(props: { catalog: Catalog; gameId: number; onBack: (
       </div>
       <GoldChart points={detail.goldLead} events={detail.events} />
       <KeyMinutes detail={detail} />
+      <BuildPanel catalog={catalog} build={detail.build} skills={detail.skills} />
       {detail.teams.map((team, index) => (
         <TeamTable key={index} catalog={catalog} team={team} title={index === 0 ? 'Tu equipo' : 'Equipo rival'} maxDamage={maxDamage} minutes={detail.minutes} />
       ))}
-      <ReviewPanel gameId={gameId} />
+      {review && <ReviewPanel gameId={gameId} />}
     </article>
   )
 }

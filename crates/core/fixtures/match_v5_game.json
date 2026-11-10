@@ -1,0 +1,536 @@
+{
+ "metadata": {
+  "matchId": "DEMO_1001"
+ },
+ "info": {
+  "gameId": 1001,
+  "gameDuration": 1812,
+  "gameCreation": 1794300000000,
+  "queueId": 420,
+  "participants": [
+   {
+    "participantId": 1,
+    "teamId": 100,
+    "puuid": "demo-me",
+    "riotIdGameName": "EjemploUno",
+    "riotIdTagline": "LAS",
+    "championId": 103,
+    "championName": "Ahri",
+    "teamPosition": "MIDDLE",
+    "summoner1Id": 4,
+    "summoner2Id": 14,
+    "win": false,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "styles": [
+      {
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        }
+       ]
+      },
+      {
+       "style": 8200,
+       "selections": []
+      }
+     ]
+    },
+    "champLevel": 15,
+    "kills": 4,
+    "deaths": 8,
+    "assists": 6,
+    "totalDamageDealtToChampions": 18000,
+    "goldEarned": 10800,
+    "totalMinionsKilled": 171,
+    "neutralMinionsKilled": 10,
+    "visionScore": 19,
+    "item0": 2501,
+    "item1": 2502,
+    "item2": 2503,
+    "item3": 2504,
+    "item4": 2510,
+    "item5": 0,
+    "item6": 3340
+   },
+   {
+    "participantId": 2,
+    "teamId": 100,
+    "puuid": "demo-ally-1",
+    "riotIdGameName": "EjemploAliado",
+    "riotIdTagline": "LAS",
+    "championId": 64,
+    "championName": "Lee Sin",
+    "teamPosition": "JUNGLE",
+    "summoner1Id": 4,
+    "summoner2Id": 11,
+    "win": false,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "styles": [
+      {
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        }
+       ]
+      },
+      {
+       "style": 8200,
+       "selections": []
+      }
+     ]
+    },
+    "champLevel": 15,
+    "kills": 5,
+    "deaths": 6,
+    "assists": 9,
+    "totalDamageDealtToChampions": 14000,
+    "goldEarned": 10500,
+    "totalMinionsKilled": 30,
+    "neutralMinionsKilled": 140,
+    "visionScore": 24,
+    "item0": 2504,
+    "item1": 2510,
+    "item2": 2512,
+    "item3": 2517,
+    "item4": 2520,
+    "item5": 2522,
+    "item6": 3340
+   },
+   {
+    "participantId": 3,
+    "teamId": 100,
+    "puuid": "demo-ally-2",
+    "riotIdGameName": "EjemploAliado",
+    "riotIdTagline": "LAS",
+    "championId": 86,
+    "championName": "Garen",
+    "teamPosition": "TOP",
+    "summoner1Id": 4,
+    "summoner2Id": 14,
+    "win": false,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "styles": [
+      {
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        }
+       ]
+      },
+      {
+       "style": 8200,
+       "selections": []
+      }
+     ]
+    },
+    "champLevel": 15,
+    "kills": 3,
+    "deaths": 7,
+    "assists": 5,
+    "totalDamageDealtToChampions": 12000,
+    "goldEarned": 9900,
+    "totalMinionsKilled": 160,
+    "neutralMinionsKilled": 4,
+    "visionScore": 12,
+    "item0": 2517,
+    "item1": 2520,
+    "item2": 2522,
+    "item3": 2523,
+    "item4": 2525,
+    "item5": 3003,
+    "item6": 3340
+   },
+   {
+    "participantId": 4,
+    "teamId": 100,
+    "puuid": "demo-ally-3",
+    "riotIdGameName": "EjemploAliado",
+    "riotIdTagline": "LAS",
+    "championId": 222,
+    "championName": "Jinx",
+    "teamPosition": "BOTTOM",
+    "summoner1Id": 4,
+    "summoner2Id": 14,
+    "win": false,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "styles": [
+      {
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        }
+       ]
+      },
+      {
+       "style": 8200,
+       "selections": []
+      }
+     ]
+    },
+    "champLevel": 15,
+    "kills": 8,
+    "deaths": 7,
+    "assists": 4,
+    "totalDamageDealtToChampions": 21000,
+    "goldEarned": 12500,
+    "totalMinionsKilled": 190,
+    "neutralMinionsKilled": 8,
+    "visionScore": 14,
+    "item0": 2523,
+    "item1": 2525,
+    "item2": 3003,
+    "item3": 3004,
+    "item4": 3026,
+    "item5": 0,
+    "item6": 3340
+   },
+   {
+    "participantId": 5,
+    "teamId": 100,
+    "puuid": "demo-ally-4",
+    "riotIdGameName": "EjemploAliado",
+    "riotIdTagline": "LAS",
+    "championId": 412,
+    "championName": "Thresh",
+    "teamPosition": "UTILITY",
+    "summoner1Id": 4,
+    "summoner2Id": 14,
+    "win": false,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "styles": [
+      {
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        }
+       ]
+      },
+      {
+       "style": 8200,
+       "selections": []
+      }
+     ]
+    },
+    "champLevel": 15,
+    "kills": 1,
+    "deaths": 6,
+    "assists": 11,
+    "totalDamageDealtToChampions": 5000,
+    "goldEarned": 7300,
+    "totalMinionsKilled": 28,
+    "neutralMinionsKilled": 0,
+    "visionScore": 48,
+    "item0": 3004,
+    "item1": 3026,
+    "item2": 3031,
+    "item3": 3032,
+    "item4": 3033,
+    "item5": 3036,
+    "item6": 3340
+   },
+   {
+    "participantId": 6,
+    "teamId": 200,
+    "puuid": "demo-enemy-5",
+    "riotIdGameName": "EjemploRival",
+    "riotIdTagline": "LAS",
+    "championId": 157,
+    "championName": "Yasuo",
+    "teamPosition": "MIDDLE",
+    "summoner1Id": 4,
+    "summoner2Id": 14,
+    "win": true,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "styles": [
+      {
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        }
+       ]
+      },
+      {
+       "style": 8200,
+       "selections": []
+      }
+     ]
+    },
+    "champLevel": 15,
+    "kills": 11,
+    "deaths": 3,
+    "assists": 9,
+    "totalDamageDealtToChampions": 24000,
+    "goldEarned": 14300,
+    "totalMinionsKilled": 205,
+    "neutralMinionsKilled": 9,
+    "visionScore": 15,
+    "item0": 3032,
+    "item1": 3033,
+    "item2": 3036,
+    "item3": 3039,
+    "item4": 3046,
+    "item5": 3053,
+    "item6": 3340
+   },
+   {
+    "participantId": 7,
+    "teamId": 200,
+    "puuid": "demo-enemy-6",
+    "riotIdGameName": "EjemploRival",
+    "riotIdTagline": "LAS",
+    "championId": 121,
+    "championName": "Kha'Zix",
+    "teamPosition": "JUNGLE",
+    "summoner1Id": 4,
+    "summoner2Id": 11,
+    "win": true,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "styles": [
+      {
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        }
+       ]
+      },
+      {
+       "style": 8200,
+       "selections": []
+      }
+     ]
+    },
+    "champLevel": 15,
+    "kills": 9,
+    "deaths": 5,
+    "assists": 10,
+    "totalDamageDealtToChampions": 17000,
+    "goldEarned": 13000,
+    "totalMinionsKilled": 25,
+    "neutralMinionsKilled": 150,
+    "visionScore": 27,
+    "item0": 3039,
+    "item1": 3046,
+    "item2": 3053,
+    "item3": 3065,
+    "item4": 3068,
+    "item5": 0,
+    "item6": 3340
+   },
+   {
+    "participantId": 8,
+    "teamId": 200,
+    "puuid": "demo-enemy-7",
+    "riotIdGameName": "EjemploRival",
+    "riotIdTagline": "LAS",
+    "championId": 122,
+    "championName": "Darius",
+    "teamPosition": "TOP",
+    "summoner1Id": 4,
+    "summoner2Id": 14,
+    "win": true,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "styles": [
+      {
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        }
+       ]
+      },
+      {
+       "style": 8200,
+       "selections": []
+      }
+     ]
+    },
+    "champLevel": 15,
+    "kills": 6,
+    "deaths": 4,
+    "assists": 8,
+    "totalDamageDealtToChampions": 16000,
+    "goldEarned": 12100,
+    "totalMinionsKilled": 175,
+    "neutralMinionsKilled": 6,
+    "visionScore": 13,
+    "item0": 3065,
+    "item1": 3068,
+    "item2": 3071,
+    "item3": 3072,
+    "item4": 3073,
+    "item5": 3074,
+    "item6": 3340
+   },
+   {
+    "participantId": 9,
+    "teamId": 200,
+    "puuid": "demo-enemy-8",
+    "riotIdGameName": "EjemploRival",
+    "riotIdTagline": "LAS",
+    "championId": 51,
+    "championName": "Caitlyn",
+    "teamPosition": "BOTTOM",
+    "summoner1Id": 4,
+    "summoner2Id": 14,
+    "win": true,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "styles": [
+      {
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        }
+       ]
+      },
+      {
+       "style": 8200,
+       "selections": []
+      }
+     ]
+    },
+    "champLevel": 15,
+    "kills": 7,
+    "deaths": 4,
+    "assists": 9,
+    "totalDamageDealtToChampions": 20000,
+    "goldEarned": 12900,
+    "totalMinionsKilled": 201,
+    "neutralMinionsKilled": 4,
+    "visionScore": 18,
+    "item0": 3072,
+    "item1": 3073,
+    "item2": 3074,
+    "item3": 3078,
+    "item4": 3083,
+    "item5": 3084,
+    "item6": 3340
+   },
+   {
+    "participantId": 10,
+    "teamId": 200,
+    "puuid": "demo-enemy-9",
+    "riotIdGameName": "EjemploRival",
+    "riotIdTagline": "LAS",
+    "championId": 89,
+    "championName": "Leona",
+    "teamPosition": "UTILITY",
+    "summoner1Id": 4,
+    "summoner2Id": 14,
+    "win": true,
+    "gameEndedInEarlySurrender": false,
+    "perks": {
+     "styles": [
+      {
+       "style": 8100,
+       "selections": [
+        {
+         "perk": 8112
+        }
+       ]
+      },
+      {
+       "style": 8200,
+       "selections": []
+      }
+     ]
+    },
+    "champLevel": 15,
+    "kills": 1,
+    "deaths": 5,
+    "assists": 17,
+    "totalDamageDealtToChampions": 6000,
+    "goldEarned": 8000,
+    "totalMinionsKilled": 30,
+    "neutralMinionsKilled": 0,
+    "visionScore": 52,
+    "item0": 3078,
+    "item1": 3083,
+    "item2": 3084,
+    "item3": 3085,
+    "item4": 3087,
+    "item5": 0,
+    "item6": 3340
+   }
+  ],
+  "teams": [
+   {
+    "teamId": 100,
+    "win": false,
+    "bans": [
+     {
+      "championId": -1
+     },
+     {
+      "championId": 122
+     }
+    ],
+    "objectives": {
+     "baron": {
+      "kills": 0
+     },
+     "dragon": {
+      "kills": 1
+     },
+     "riftHerald": {
+      "kills": 1
+     },
+     "horde": {
+      "kills": 3
+     },
+     "tower": {
+      "kills": 3
+     },
+     "inhibitor": {
+      "kills": 0
+     }
+    }
+   },
+   {
+    "teamId": 200,
+    "win": true,
+    "bans": [
+     {
+      "championId": 412
+     }
+    ],
+    "objectives": {
+     "baron": {
+      "kills": 1
+     },
+     "dragon": {
+      "kills": 3
+     },
+     "riftHerald": {
+      "kills": 0
+     },
+     "horde": {
+      "kills": 3
+     },
+     "tower": {
+      "kills": 9
+     },
+     "inhibitor": {
+      "kills": 2
+     }
+    }
+   }
+  ]
+ }
+}

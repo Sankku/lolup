@@ -13,4 +13,5 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "2", features = [] }
 tauri-plugin-global-shortcut = "2"
+lolup-core = { path = "../crates/core" }
 tokio = { version = "1", features = ["time"] }

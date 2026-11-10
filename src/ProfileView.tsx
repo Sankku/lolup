@@ -30,7 +30,7 @@ function LpChart(props: { points: LpPoint[] }) {
       <section className="rise border border-line bg-ink p-4" style={{ animationDelay: '210ms' }}>
         {heading}
         <p className="mt-2 text-sm">
-          Empezamos a registrar tu LP. El gráfico aparece después de tu próxima partida clasificatoria con LolUp abierto.
+          Todavía no hay suficientes registros de LP. El gráfico aparece cuando cambie el LP de esta cuenta.
         </p>
       </section>
     )
@@ -86,7 +86,7 @@ function LpChart(props: { points: LpPoint[] }) {
           <text x={LP.width - LP.right} y={LP.height - 5} textAnchor="end">{dateFormat.format(points[points.length - 1].ms)}</text>
         </g>
       </svg>
-      <p className="mt-1 text-xs text-muted">Registrado localmente en este equipo cada vez que cambia tu LP con LolUp abierto.</p>
+      <p className="mt-1 text-xs text-muted">Cada punto es un cambio de LP registrado por LolUp.</p>
     </section>
   )
 }
@@ -125,7 +125,7 @@ export function ProfileView(props: { catalog: Catalog; profile: Profile; matches
     <article className="mx-auto max-w-5xl space-y-5">
       <header className="rise flex items-center gap-5">
         <img
-          src={assetUrl(`/lol-game-data/assets/v1/profile-icons/${profile.iconId}.jpg`)}
+          src={profile.iconUrl ?? assetUrl(`/lol-game-data/assets/v1/profile-icons/${profile.iconId}.jpg`)}
           alt=""
           width={84}
           height={84}

@@ -2,22 +2,8 @@
 
 use serde::Serialize;
 use serde_json::Value;
-use std::collections::HashMap;
 
-pub type Names = HashMap<i64, String>;
-
-pub fn champion_names(summary: &Value) -> Names {
-    summary
-        .as_array()
-        .into_iter()
-        .flatten()
-        .filter_map(|c| Some((c["id"].as_i64()?, c["name"].as_str()?.to_string())))
-        .collect()
-}
-
-pub fn name(names: &Names, id: i64) -> String {
-    names.get(&id).cloned().unwrap_or_else(|| format!("Campeón {id}"))
-}
+pub use lolup_core::game::{Names, champion_names, name};
 
 fn stat(participant: &Value, key: &str) -> i64 {
     participant["stats"][key].as_i64().unwrap_or(0)
@@ -197,11 +183,11 @@ mod tests {
     }
 
     fn names() -> Names {
-        champion_names(&fixture(include_str!("../fixtures/champions.json")))
+        champion_names(&fixture(include_str!("../../crates/core/fixtures/champions.json")))
     }
 
     fn game() -> Value {
-        fixture(include_str!("../fixtures/game.json"))
+        fixture(include_str!("../../crates/core/fixtures/game.json"))
     }
 
     #[test]
@@ -252,7 +238,7 @@ mod tests {
 
     #[test]
     fn draft_card_uses_champions_only() {
-        let session = fixture(include_str!("../fixtures/session.json"));
+        let session = fixture(include_str!("../../crates/core/fixtures/session.json"));
         let card = draft_card(&session, &names()).unwrap();
         assert!(card.contains("Tu campeón: Ahri."));
         assert!(card.contains("Tu posición: MIDDLE."));
