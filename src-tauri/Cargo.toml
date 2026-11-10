@@ -1,0 +1,16 @@
+[package]
+name = "lolup"
+version = "0.1.0"
+edition = "2024"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+futures-util = "0.3"
+reqwest = { version = "0.13", default-features = false, features = ["native-tls", "http2", "json", "stream"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = [] }
+tauri-plugin-global-shortcut = "2"
+tokio = { version = "1", features = ["time"] }

@@ -1,0 +1,237 @@
+{
+ "platformId": "DEMO",
+ "games": {
+  "games": [
+   {
+    "gameId": 1001,
+    "gameDuration": 1812,
+    "gameCreation": 1794300000000,
+    "queueId": 420,
+    "participantIdentities": [
+     {
+      "player": {
+       "puuid": "demo-me"
+      }
+     }
+    ],
+    "participants": [
+     {
+      "championId": 103,
+      "spell1Id": 4,
+      "spell2Id": 14,
+      "timeline": {
+       "lane": "MIDDLE",
+       "role": "SOLO"
+      },
+      "stats": {
+       "win": false,
+       "kills": 4,
+       "deaths": 8,
+       "assists": 6,
+       "champLevel": 15,
+       "item0": 2517,
+       "item1": 2520,
+       "item2": 2522,
+       "item3": 2523,
+       "item4": 2525,
+       "item5": 3003,
+       "item6": 3340,
+       "perk0": 8112,
+       "perkPrimaryStyle": 8100,
+       "perkSubStyle": 8200,
+       "goldEarned": 11000,
+       "totalMinionsKilled": 170,
+       "neutralMinionsKilled": 8,
+       "visionScore": 20,
+       "totalDamageDealtToChampions": 18000
+      }
+     }
+    ]
+   },
+   {
+    "gameId": 1002,
+    "gameDuration": 1620,
+    "gameCreation": 1794292800000,
+    "queueId": 420,
+    "participantIdentities": [
+     {
+      "player": {
+       "puuid": "demo-me"
+      }
+     }
+    ],
+    "participants": [
+     {
+      "championId": 103,
+      "spell1Id": 4,
+      "spell2Id": 14,
+      "timeline": {
+       "lane": "MIDDLE",
+       "role": "SOLO"
+      },
+      "stats": {
+       "win": true,
+       "kills": 9,
+       "deaths": 2,
+       "assists": 7,
+       "champLevel": 15,
+       "item0": 2523,
+       "item1": 2525,
+       "item2": 3003,
+       "item3": 3004,
+       "item4": 3026,
+       "item5": 0,
+       "item6": 3340,
+       "perk0": 8112,
+       "perkPrimaryStyle": 8100,
+       "perkSubStyle": 8200,
+       "goldEarned": 11000,
+       "totalMinionsKilled": 170,
+       "neutralMinionsKilled": 8,
+       "visionScore": 20,
+       "totalDamageDealtToChampions": 18000
+      }
+     }
+    ]
+   },
+   {
+    "gameId": 1003,
+    "gameDuration": 2055,
+    "gameCreation": 1794285600000,
+    "queueId": 420,
+    "participantIdentities": [
+     {
+      "player": {
+       "puuid": "demo-me"
+      }
+     }
+    ],
+    "participants": [
+     {
+      "championId": 157,
+      "spell1Id": 4,
+      "spell2Id": 14,
+      "timeline": {
+       "lane": "MIDDLE",
+       "role": "SOLO"
+      },
+      "stats": {
+       "win": false,
+       "kills": 3,
+       "deaths": 10,
+       "assists": 4,
+       "champLevel": 15,
+       "item0": 3004,
+       "item1": 3026,
+       "item2": 3031,
+       "item3": 3032,
+       "item4": 3033,
+       "item5": 3036,
+       "item6": 3340,
+       "perk0": 8112,
+       "perkPrimaryStyle": 8100,
+       "perkSubStyle": 8200,
+       "goldEarned": 11000,
+       "totalMinionsKilled": 170,
+       "neutralMinionsKilled": 8,
+       "visionScore": 20,
+       "totalDamageDealtToChampions": 18000
+      }
+     }
+    ]
+   },
+   {
+    "gameId": 1004,
+    "gameDuration": 1490,
+    "gameCreation": 1794278400000,
+    "queueId": 440,
+    "participantIdentities": [
+     {
+      "player": {
+       "puuid": "demo-me"
+      }
+     }
+    ],
+    "participants": [
+     {
+      "championId": 103,
+      "spell1Id": 4,
+      "spell2Id": 14,
+      "timeline": {
+       "lane": "MIDDLE",
+       "role": "SOLO"
+      },
+      "stats": {
+       "win": true,
+       "kills": 6,
+       "deaths": 3,
+       "assists": 12,
+       "champLevel": 15,
+       "item0": 3032,
+       "item1": 3033,
+       "item2": 3036,
+       "item3": 3039,
+       "item4": 3046,
+       "item5": 3053,
+       "item6": 3340,
+       "perk0": 8112,
+       "perkPrimaryStyle": 8100,
+       "perkSubStyle": 8200,
+       "goldEarned": 11000,
+       "totalMinionsKilled": 170,
+       "neutralMinionsKilled": 8,
+       "visionScore": 20,
+       "totalDamageDealtToChampions": 18000
+      }
+     }
+    ]
+   },
+   {
+    "gameId": 1005,
+    "gameDuration": 1733,
+    "gameCreation": 1794271200000,
+    "queueId": 440,
+    "participantIdentities": [
+     {
+      "player": {
+       "puuid": "demo-me"
+      }
+     }
+    ],
+    "participants": [
+     {
+      "championId": 121,
+      "spell1Id": 4,
+      "spell2Id": 11,
+      "timeline": {
+       "lane": "JUNGLE",
+       "role": "SOLO"
+      },
+      "stats": {
+       "win": true,
+       "kills": 12,
+       "deaths": 4,
+       "assists": 5,
+       "champLevel": 15,
+       "item0": 3039,
+       "item1": 3046,
+       "item2": 3053,
+       "item3": 3065,
+       "item4": 3068,
+       "item5": 0,
+       "item6": 3340,
+       "perk0": 8112,
+       "perkPrimaryStyle": 8100,
+       "perkSubStyle": 8200,
+       "goldEarned": 11000,
+       "totalMinionsKilled": 170,
+       "neutralMinionsKilled": 8,
+       "visionScore": 20,
+       "totalDamageDealtToChampions": 18000
+      }
+     }
+    ]
+   }
+  ]
+ }
+}

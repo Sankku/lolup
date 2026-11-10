@@ -1,0 +1,69 @@
+@import "tailwindcss";
+@import "@fontsource-variable/big-shoulders-display";
+
+@theme {
+  --font-display: "Big Shoulders Display Variable", sans-serif;
+  --font-body: "Atkinson Hyperlegible", sans-serif;
+  --color-ink: #101412;
+  --color-panel: #181e1b;
+  --color-line: #2c3530;
+  --color-paper: #efeadd;
+  --color-muted: #9aa69e;
+  --color-signal: #d7ff3e;
+  --color-loss: #ff6a4d;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-ink);
+  background-image: linear-gradient(var(--color-panel) 1px, transparent 1px);
+  background-size: 100% 28px;
+  color: var(--color-paper);
+  font-family: var(--font-body);
+}
+
+html.overlay,
+html.overlay body {
+  background: transparent;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--color-signal);
+  outline-offset: 2px;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+.rise {
+  animation: rise 360ms cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
+}
+
+@keyframes blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+.caret::after {
+  content: "▌";
+  color: var(--color-signal);
+  animation: blink 900ms step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rise,
+  .caret::after {
+    animation: none;
+  }
+}

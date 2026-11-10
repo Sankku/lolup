@@ -1,0 +1,465 @@
+{
+ "gameId": 1001,
+ "gameDuration": 1812,
+ "gameCreation": 1794300000000,
+ "queueId": 420,
+ "participants": [
+  {
+   "participantId": 1,
+   "teamId": 100,
+   "championId": 103,
+   "spell1Id": 4,
+   "spell2Id": 14,
+   "timeline": {
+    "lane": "MIDDLE",
+    "role": "SOLO"
+   },
+   "stats": {
+    "win": false,
+    "kills": 4,
+    "deaths": 8,
+    "assists": 6,
+    "champLevel": 15,
+    "item0": 2501,
+    "item1": 2502,
+    "item2": 2503,
+    "item3": 2504,
+    "item4": 2510,
+    "item5": 0,
+    "item6": 3340,
+    "perk0": 8112,
+    "perkPrimaryStyle": 8100,
+    "perkSubStyle": 8200,
+    "totalDamageDealtToChampions": 18000,
+    "totalDamageTaken": 21000,
+    "goldEarned": 10800,
+    "totalMinionsKilled": 171,
+    "neutralMinionsKilled": 10,
+    "visionScore": 19
+   }
+  },
+  {
+   "participantId": 2,
+   "teamId": 100,
+   "championId": 64,
+   "spell1Id": 4,
+   "spell2Id": 11,
+   "timeline": {
+    "lane": "JUNGLE",
+    "role": "NONE"
+   },
+   "stats": {
+    "win": false,
+    "kills": 5,
+    "deaths": 6,
+    "assists": 9,
+    "champLevel": 15,
+    "item0": 2504,
+    "item1": 2510,
+    "item2": 2512,
+    "item3": 2517,
+    "item4": 2520,
+    "item5": 2522,
+    "item6": 3340,
+    "perk0": 8112,
+    "perkPrimaryStyle": 8100,
+    "perkSubStyle": 8200,
+    "totalDamageDealtToChampions": 14000,
+    "totalDamageTaken": 29000,
+    "goldEarned": 10500,
+    "totalMinionsKilled": 30,
+    "neutralMinionsKilled": 140,
+    "visionScore": 24
+   }
+  },
+  {
+   "participantId": 3,
+   "teamId": 100,
+   "championId": 86,
+   "spell1Id": 4,
+   "spell2Id": 14,
+   "timeline": {
+    "lane": "TOP",
+    "role": "SOLO"
+   },
+   "stats": {
+    "win": false,
+    "kills": 3,
+    "deaths": 7,
+    "assists": 5,
+    "champLevel": 15,
+    "item0": 2517,
+    "item1": 2520,
+    "item2": 2522,
+    "item3": 2523,
+    "item4": 2525,
+    "item5": 3003,
+    "item6": 3340,
+    "perk0": 8112,
+    "perkPrimaryStyle": 8100,
+    "perkSubStyle": 8200,
+    "totalDamageDealtToChampions": 12000,
+    "totalDamageTaken": 34000,
+    "goldEarned": 9900,
+    "totalMinionsKilled": 160,
+    "neutralMinionsKilled": 4,
+    "visionScore": 12
+   }
+  },
+  {
+   "participantId": 4,
+   "teamId": 100,
+   "championId": 222,
+   "spell1Id": 4,
+   "spell2Id": 14,
+   "timeline": {
+    "lane": "BOTTOM",
+    "role": "CARRY"
+   },
+   "stats": {
+    "win": false,
+    "kills": 8,
+    "deaths": 7,
+    "assists": 4,
+    "champLevel": 15,
+    "item0": 2523,
+    "item1": 2525,
+    "item2": 3003,
+    "item3": 3004,
+    "item4": 3026,
+    "item5": 0,
+    "item6": 3340,
+    "perk0": 8112,
+    "perkPrimaryStyle": 8100,
+    "perkSubStyle": 8200,
+    "totalDamageDealtToChampions": 21000,
+    "totalDamageTaken": 17000,
+    "goldEarned": 12500,
+    "totalMinionsKilled": 190,
+    "neutralMinionsKilled": 8,
+    "visionScore": 14
+   }
+  },
+  {
+   "participantId": 5,
+   "teamId": 100,
+   "championId": 412,
+   "spell1Id": 4,
+   "spell2Id": 14,
+   "timeline": {
+    "lane": "BOTTOM",
+    "role": "SUPPORT"
+   },
+   "stats": {
+    "win": false,
+    "kills": 1,
+    "deaths": 6,
+    "assists": 11,
+    "champLevel": 15,
+    "item0": 3004,
+    "item1": 3026,
+    "item2": 3031,
+    "item3": 3032,
+    "item4": 3033,
+    "item5": 3036,
+    "item6": 3340,
+    "perk0": 8112,
+    "perkPrimaryStyle": 8100,
+    "perkSubStyle": 8200,
+    "totalDamageDealtToChampions": 5000,
+    "totalDamageTaken": 24000,
+    "goldEarned": 7300,
+    "totalMinionsKilled": 28,
+    "neutralMinionsKilled": 0,
+    "visionScore": 48
+   }
+  },
+  {
+   "participantId": 6,
+   "teamId": 200,
+   "championId": 157,
+   "spell1Id": 4,
+   "spell2Id": 14,
+   "timeline": {
+    "lane": "MIDDLE",
+    "role": "SOLO"
+   },
+   "stats": {
+    "win": true,
+    "kills": 11,
+    "deaths": 3,
+    "assists": 9,
+    "champLevel": 15,
+    "item0": 3032,
+    "item1": 3033,
+    "item2": 3036,
+    "item3": 3039,
+    "item4": 3046,
+    "item5": 3053,
+    "item6": 3340,
+    "perk0": 8112,
+    "perkPrimaryStyle": 8100,
+    "perkSubStyle": 8200,
+    "totalDamageDealtToChampions": 24000,
+    "totalDamageTaken": 22000,
+    "goldEarned": 14300,
+    "totalMinionsKilled": 205,
+    "neutralMinionsKilled": 9,
+    "visionScore": 15
+   }
+  },
+  {
+   "participantId": 7,
+   "teamId": 200,
+   "championId": 121,
+   "spell1Id": 4,
+   "spell2Id": 11,
+   "timeline": {
+    "lane": "JUNGLE",
+    "role": "NONE"
+   },
+   "stats": {
+    "win": true,
+    "kills": 9,
+    "deaths": 5,
+    "assists": 10,
+    "champLevel": 15,
+    "item0": 3039,
+    "item1": 3046,
+    "item2": 3053,
+    "item3": 3065,
+    "item4": 3068,
+    "item5": 0,
+    "item6": 3340,
+    "perk0": 8112,
+    "perkPrimaryStyle": 8100,
+    "perkSubStyle": 8200,
+    "totalDamageDealtToChampions": 17000,
+    "totalDamageTaken": 25000,
+    "goldEarned": 13000,
+    "totalMinionsKilled": 25,
+    "neutralMinionsKilled": 150,
+    "visionScore": 27
+   }
+  },
+  {
+   "participantId": 8,
+   "teamId": 200,
+   "championId": 122,
+   "spell1Id": 4,
+   "spell2Id": 14,
+   "timeline": {
+    "lane": "TOP",
+    "role": "SOLO"
+   },
+   "stats": {
+    "win": true,
+    "kills": 6,
+    "deaths": 4,
+    "assists": 8,
+    "champLevel": 15,
+    "item0": 3065,
+    "item1": 3068,
+    "item2": 3071,
+    "item3": 3072,
+    "item4": 3073,
+    "item5": 3074,
+    "item6": 3340,
+    "perk0": 8112,
+    "perkPrimaryStyle": 8100,
+    "perkSubStyle": 8200,
+    "totalDamageDealtToChampions": 16000,
+    "totalDamageTaken": 38000,
+    "goldEarned": 12100,
+    "totalMinionsKilled": 175,
+    "neutralMinionsKilled": 6,
+    "visionScore": 13
+   }
+  },
+  {
+   "participantId": 9,
+   "teamId": 200,
+   "championId": 51,
+   "spell1Id": 4,
+   "spell2Id": 14,
+   "timeline": {
+    "lane": "BOTTOM",
+    "role": "CARRY"
+   },
+   "stats": {
+    "win": true,
+    "kills": 7,
+    "deaths": 4,
+    "assists": 9,
+    "champLevel": 15,
+    "item0": 3072,
+    "item1": 3073,
+    "item2": 3074,
+    "item3": 3078,
+    "item4": 3083,
+    "item5": 3084,
+    "item6": 3340,
+    "perk0": 8112,
+    "perkPrimaryStyle": 8100,
+    "perkSubStyle": 8200,
+    "totalDamageDealtToChampions": 20000,
+    "totalDamageTaken": 16000,
+    "goldEarned": 12900,
+    "totalMinionsKilled": 201,
+    "neutralMinionsKilled": 4,
+    "visionScore": 18
+   }
+  },
+  {
+   "participantId": 10,
+   "teamId": 200,
+   "championId": 89,
+   "spell1Id": 4,
+   "spell2Id": 14,
+   "timeline": {
+    "lane": "BOTTOM",
+    "role": "SUPPORT"
+   },
+   "stats": {
+    "win": true,
+    "kills": 1,
+    "deaths": 5,
+    "assists": 17,
+    "champLevel": 15,
+    "item0": 3078,
+    "item1": 3083,
+    "item2": 3084,
+    "item3": 3085,
+    "item4": 3087,
+    "item5": 0,
+    "item6": 3340,
+    "perk0": 8112,
+    "perkPrimaryStyle": 8100,
+    "perkSubStyle": 8200,
+    "totalDamageDealtToChampions": 6000,
+    "totalDamageTaken": 31000,
+    "goldEarned": 8000,
+    "totalMinionsKilled": 30,
+    "neutralMinionsKilled": 0,
+    "visionScore": 52
+   }
+  }
+ ],
+ "participantIdentities": [
+  {
+   "participantId": 1,
+   "player": {
+    "puuid": "demo-me",
+    "gameName": "EjemploUno",
+    "tagLine": "LAS"
+   }
+  },
+  {
+   "participantId": 2,
+   "player": {
+    "puuid": "demo-ally-1",
+    "gameName": "EjemploAliado",
+    "tagLine": "LAS"
+   }
+  },
+  {
+   "participantId": 3,
+   "player": {
+    "puuid": "demo-ally-2",
+    "gameName": "EjemploAliado",
+    "tagLine": "LAS"
+   }
+  },
+  {
+   "participantId": 4,
+   "player": {
+    "puuid": "demo-ally-3",
+    "gameName": "EjemploAliado",
+    "tagLine": "LAS"
+   }
+  },
+  {
+   "participantId": 5,
+   "player": {
+    "puuid": "demo-ally-4",
+    "gameName": "EjemploAliado",
+    "tagLine": "LAS"
+   }
+  },
+  {
+   "participantId": 6,
+   "player": {
+    "puuid": "demo-enemy-5",
+    "gameName": "EjemploRival",
+    "tagLine": "LAS"
+   }
+  },
+  {
+   "participantId": 7,
+   "player": {
+    "puuid": "demo-enemy-6",
+    "gameName": "EjemploRival",
+    "tagLine": "LAS"
+   }
+  },
+  {
+   "participantId": 8,
+   "player": {
+    "puuid": "demo-enemy-7",
+    "gameName": "EjemploRival",
+    "tagLine": "LAS"
+   }
+  },
+  {
+   "participantId": 9,
+   "player": {
+    "puuid": "demo-enemy-8",
+    "gameName": "EjemploRival",
+    "tagLine": "LAS"
+   }
+  },
+  {
+   "participantId": 10,
+   "player": {
+    "puuid": "demo-enemy-9",
+    "gameName": "EjemploRival",
+    "tagLine": "LAS"
+   }
+  }
+ ],
+ "teams": [
+  {
+   "teamId": 100,
+   "win": "Fail",
+   "baronKills": 0,
+   "dragonKills": 1,
+   "riftHeraldKills": 1,
+   "hordeKills": 3,
+   "towerKills": 3,
+   "inhibitorKills": 0,
+   "bans": [
+    {
+     "championId": -1
+    },
+    {
+     "championId": 122
+    }
+   ]
+  },
+  {
+   "teamId": 200,
+   "win": "Win",
+   "baronKills": 1,
+   "dragonKills": 3,
+   "riftHeraldKills": 0,
+   "hordeKills": 3,
+   "towerKills": 9,
+   "inhibitorKills": 2,
+   "bans": [
+    {
+     "championId": 412
+    }
+   ]
+  }
+ ]
+}
