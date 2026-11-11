@@ -1,8 +1,8 @@
 # Despliegue de la web: lolup.aoweb.net
 
-Estado al 2026-11-10: la web corre en la VM de Lightsail `aura-prod` (São Paulo, `56.124.44.58`,
+Estado al 2026-11-11: la web corre en la VM de Lightsail `aura-prod` (São Paulo, `56.124.44.58`,
 usuario `ubuntu`), junto a AURA y AURORA, detrás de un túnel de Cloudflare propio. Abierta al público,
-con cuentas de LolUp.
+con cuentas propias de LolUp.
 
 ## Arquitectura
 
@@ -13,8 +13,7 @@ navegador ─► Cloudflare (DNS lolup.aoweb.net) ─► túnel `lolup` ─► c
                                               lolup-server  http://lolup:3000  (sin puertos publicados)
                                                 ├─ interfaz de React (dist/)
                                                 ├─ API de Riot (RIOT_API_KEY)
-                                                ├─ cuentas: login directo, servidor a servidor
-                                                └─ volumen /data/lolup.db (caché, LP, sesiones)
+                                                └─ volumen /data/lolup.db (caché, LP, cuentas, sesiones)
 ```
 
 - **Imagen:** `Dockerfile` (node compila la interfaz, rust compila `crates/server`, corre en
@@ -26,11 +25,15 @@ navegador ─► Cloudflare (DNS lolup.aoweb.net) ─► túnel `lolup` ─► c
 
 ## Cuentas
 
-La pantalla de ingreso y alta es de LolUp. Por debajo, el servidor valida o crea la cuenta en el
-servicio de cuentas configurado (`ACCOUNTS_ISSUER`, cliente `lolup` con `aoweb_direct_login: true`)
-con `POST /api/directo/entrar|crear`, y guarda solo una sesión: token aleatorio en la cookie
-`lolup_sesion` (`HttpOnly`, `Secure`, `SameSite=Lax`, 30 días) y su hash SHA-256 en SQLite. La
-contraseña pasa por el servidor y no se guarda ni se registra.
+Cuentas propias e independientes (decisión del 2026-11-11), en la tabla `users` de la base del
+servidor. Usuario único sin distinguir mayúsculas, email único, contraseña con PBKDF2-HMAC-SHA256
+(600.000 iteraciones, sal aleatoria de 16 bytes). La sesión es un token aleatorio en la cookie
+`lolup_sesion` (`HttpOnly`, `Secure`, `SameSite=Lax`, 30 días) con su hash SHA-256 en `sessions`.
+Límites en memoria: 10 ingresos por minuto y 5 altas por hora por IP, y 15 minutos de bloqueo tras 5
+fallos en una cuenta.
+
+Más adelante las cuentas pueden pasar a la cuenta de la red con el login directo de accounts
+(atidorfa/accounts#10), sin cambiar la pantalla.
 
 | Ruta                      | Qué hace                                         |
 | ------------------------- | ------------------------------------------------ |
@@ -39,8 +42,8 @@ contraseña pasa por el servidor y no se guarda ni se registra.
 | `POST /api/auth/register` | `{name, email, password}` → cuenta nueva y sesión |
 | `POST /api/auth/logout`   | cierra la sesión                                  |
 
-Con cuentas configuradas, `/api/profile` y `/api/match` piden sesión (401 sin ella). Sin las variables
-`ACCOUNTS_*` la web queda abierta, como en desarrollo local.
+`/api/profile` y `/api/match` piden sesión (401 sin ella). En local también: creá una cuenta en la
+pantalla de ingreso.
 
 ## Operación
 

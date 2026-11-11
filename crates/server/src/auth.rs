@@ -1,88 +1,172 @@
-//! Cuentas de LolUp: ingreso y alta con pantalla propia.
+//! Cuentas de LolUp: alta, ingreso y sesiones, todo en la base propia del servidor.
 //!
-//! La cuenta vive en el servicio de cuentas configurado con `ACCOUNTS_ISSUER`, `ACCOUNTS_CLIENT_ID` y
-//! `ACCOUNTS_CLIENT_SECRET` (login directo, servidor a servidor). Acá solo queda una sesión: un token
-//! aleatorio en una cookie `HttpOnly` y su hash en SQLite. La contraseña pasa por este proceso y nunca
-//! se guarda ni se registra. Sin esas variables la web queda abierta, como en desarrollo.
+//! Las contraseñas se guardan con PBKDF2-HMAC-SHA256 (600.000 iteraciones, sal aleatoria). La sesión es
+//! un token aleatorio en una cookie `HttpOnly`; en la base solo queda su hash. Las búsquedas piden sesión.
+//!
+//! ponytail: cuentas independientes por decisión del dueño (2026-11-10). Más adelante pueden pasar a la
+//! cuenta de la red con el login directo de accounts (atidorfa/accounts#10) sin cambiar esta pantalla.
 
 use crate::riot::ApiError;
+use crate::store::Taken;
 use crate::{AppState, Failure, Shared, now_ms};
 use axum::Json;
 use axum::extract::State;
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde::Deserialize;
+use serde_json::json;
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
+use std::sync::Mutex;
 
 const COOKIE: &str = "lolup_sesion";
 const SESSION_DAYS: i64 = 30;
+const ITERATIONS: u32 = 600_000;
+const BAD_CREDENTIALS: &str = "Usuario o contraseña incorrectos.";
+const MINUTE: i64 = 60_000;
 
-pub struct Accounts {
-    http: reqwest::Client,
-    base: String,
-    client_id: String,
-    secret: String,
+// --- Contraseñas ---------------------------------------------------------------------------------
+
+fn hex(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
-impl Accounts {
-    pub fn from_env() -> Option<Self> {
-        let var = |name: &str| std::env::var(name).ok().map(|v| v.trim().to_string()).filter(|v| !v.is_empty());
-        Some(Self {
-            http: reqwest::Client::builder().timeout(std::time::Duration::from_secs(15)).build().ok()?,
-            base: var("ACCOUNTS_ISSUER")?.trim_end_matches('/').to_string(),
-            client_id: var("ACCOUNTS_CLIENT_ID")?,
-            secret: var("ACCOUNTS_CLIENT_SECRET")?,
-        })
+fn unhex(text: &str) -> Option<Vec<u8>> {
+    (text.len() % 2 == 0)
+        .then(|| (0..text.len()).step_by(2).map(|i| u8::from_str_radix(text.get(i..i + 2)?, 16).ok()).collect::<Option<Vec<u8>>>())
+        .flatten()
+}
+
+/// PBKDF2-HMAC-SHA256 (RFC 8018). Los estados con las claves ya mezcladas se clonan en cada vuelta.
+fn pbkdf2(password: &[u8], salt: &[u8], iterations: u32, out: &mut [u8]) {
+    let mut key = [0u8; 64];
+    if password.len() > 64 {
+        key[..32].copy_from_slice(&Sha256::digest(password));
+    } else {
+        key[..password.len()].copy_from_slice(password);
+    }
+    let mut inner = Sha256::new();
+    inner.update(key.map(|b| b ^ 0x36));
+    let mut outer = Sha256::new();
+    outer.update(key.map(|b| b ^ 0x5c));
+    let hmac = |parts: &[&[u8]]| -> [u8; 32] {
+        let mut i = inner.clone();
+        for part in parts {
+            i.update(part);
+        }
+        let mut o = outer.clone();
+        o.update(i.finalize());
+        o.finalize().into()
+    };
+    for (index, chunk) in out.chunks_mut(32).enumerate() {
+        let mut u = hmac(&[salt, &(index as u32 + 1).to_be_bytes()]);
+        let mut t = u;
+        for _ in 1..iterations {
+            u = hmac(&[&u]);
+            t.iter_mut().zip(u).for_each(|(a, b)| *a ^= b);
+        }
+        chunk.copy_from_slice(&t[..chunk.len()]);
+    }
+}
+
+fn hash_password(password: &str) -> Option<String> {
+    let mut salt = [0u8; 16];
+    getrandom::fill(&mut salt).ok()?;
+    let mut out = [0u8; 32];
+    pbkdf2(password.as_bytes(), &salt, ITERATIONS, &mut out);
+    Some(format!("pbkdf2_sha256${ITERATIONS}${}${}", hex(&salt), hex(&out)))
+}
+
+fn verify_password(password: &str, stored: &str) -> bool {
+    let parts: Vec<&str> = stored.split('$').collect();
+    let (scheme, iterations, salt, expected) = match parts.as_slice() {
+        [a, b, c, d] => (*a, *b, *c, *d),
+        _ => return false,
+    };
+    let (Ok(iterations), Some(salt), Some(expected)) = (iterations.parse::<u32>(), unhex(salt), unhex(expected)) else {
+        return false;
+    };
+    if scheme != "pbkdf2_sha256" || iterations == 0 || expected.is_empty() {
+        return false;
+    }
+    let mut out = vec![0u8; expected.len()];
+    pbkdf2(password.as_bytes(), &salt, iterations, &mut out);
+    out.iter().zip(&expected).fold(0u8, |acc, (a, b)| acc | (a ^ b)) == 0
+}
+
+/// Para un usuario que no existe se hace el mismo trabajo, así el tiempo no delata qué cuentas hay.
+const DUMMY_HASH: &str = "pbkdf2_sha256$600000$00000000000000000000000000000000$0000000000000000000000000000000000000000000000000000000000000000";
+
+async fn blocking<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> Option<T> {
+    tokio::task::spawn_blocking(work).await.ok()
+}
+
+// --- Límites de intentos -------------------------------------------------------------------------
+
+/// Ventanas deslizantes en memoria: se pierden al reiniciar, lo que solo da un respiro al que ataca.
+#[derive(Default)]
+pub struct Limits(Mutex<HashMap<String, Vec<i64>>>);
+
+impl Limits {
+    fn recent(&self, key: &str, window_ms: i64, now: i64) -> usize {
+        let mut map = self.0.lock().unwrap();
+        if map.len() > 10_000 {
+            map.retain(|_, hits| hits.last().is_some_and(|&t| now - t < 60 * MINUTE));
+        }
+        let hits = map.entry(key.to_string()).or_default();
+        hits.retain(|&t| now - t < window_ms);
+        hits.len()
     }
 
-    async fn call(&self, action: &str, body: Value) -> Result<Identity, (StatusCode, String)> {
-        let unavailable = || (StatusCode::BAD_GATEWAY, "No pudimos verificar tu cuenta. Probá de nuevo en un rato.".to_string());
-        let response = self
-            .http
-            .post(format!("{}/api/directo/{action}", self.base))
-            .basic_auth(&self.client_id, Some(&self.secret))
-            .json(&body)
-            .send()
-            .await
-            .map_err(|_| unavailable())?;
-        let status = response.status();
-        let value: Value = response.json().await.map_err(|_| unavailable())?;
-        if status.is_success() {
-            return serde_json::from_value(value).map_err(|_| unavailable());
+    fn add(&self, key: &str, now: i64) {
+        self.0.lock().unwrap().entry(key.to_string()).or_default().push(now);
+    }
+
+    /// Cuenta el intento y dice si ya pasó el máximo de la ventana.
+    fn take(&self, key: &str, max: usize, window_ms: i64, now: i64) -> bool {
+        let over = self.recent(key, window_ms, now) >= max;
+        if !over {
+            self.add(key, now);
         }
-        // Errores del jugador (datos, duplicados, límites): el mensaje ya viene listo para mostrar.
-        match (status.as_u16(), value["message"].as_str()) {
-            (400 | 401 | 403 | 409 | 429, Some(message)) => {
-                Err((StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_REQUEST), message.to_string()))
-            }
-            _ => {
-                eprintln!("cuentas: {action} respondió {status}");
-                Err(unavailable())
-            }
-        }
+        over
+    }
+
+    fn clear(&self, key: &str) {
+        self.0.lock().unwrap().remove(key);
     }
 }
 
-#[derive(Deserialize)]
-struct Identity {
-    sub: String,
-    name: String,
+// --- Validación ----------------------------------------------------------------------------------
+
+fn validate(name: &str, email: &str, password: &str) -> Result<(), &'static str> {
+    let name_ok = (3..=20).contains(&name.len()) && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    if !name_ok {
+        return Err("El usuario debe tener de 3 a 20 caracteres (letras, números, _ o -).");
+    }
+    let email_ok = email.len() <= 254
+        && !email.chars().any(char::is_whitespace)
+        && email.split_once('@').is_some_and(|(user, domain)| {
+            !user.is_empty() && !domain.contains('@') && domain.split('.').count() >= 2 && domain.split('.').all(|p| !p.is_empty())
+        });
+    if !email_ok {
+        return Err("El email no parece válido.");
+    }
+    if !(8..=128).contains(&password.chars().count()) {
+        return Err("La contraseña debe tener entre 8 y 128 caracteres.");
+    }
+    Ok(())
 }
 
-#[derive(Serialize)]
-struct User {
-    name: String,
-}
+// --- Sesiones ------------------------------------------------------------------------------------
 
 fn random_token() -> Option<String> {
     let mut bytes = [0u8; 32];
     getrandom::fill(&mut bytes).ok()?;
-    Some(bytes.iter().map(|b| format!("{b:02x}")).collect())
+    Some(hex(&bytes))
 }
 
-fn hash(token: &str) -> String {
-    Sha256::digest(token.as_bytes()).iter().map(|b| format!("{b:02x}")).collect()
+fn token_hash(token: &str) -> String {
+    hex(&Sha256::digest(token.as_bytes()))
 }
 
 fn cookie_token(headers: &HeaderMap) -> Option<String> {
@@ -97,26 +181,43 @@ fn session_cookie(token: &str, max_age: i64) -> HeaderValue {
     HeaderValue::from_str(&value).expect("cookie ASCII")
 }
 
-/// `(sub, nombre)` de la sesión de este pedido, si hay una vigente.
+/// `(id, nombre)` de la sesión de este pedido, si hay una vigente.
 fn current(state: &AppState, headers: &HeaderMap) -> Option<(String, String)> {
-    state.store.session(&hash(&cookie_token(headers)?), now_ms())
+    state.store.session(&token_hash(&cookie_token(headers)?), now_ms())
 }
 
-/// Con cuentas configuradas, las búsquedas piden sesión. Sin ellas la web queda abierta.
+/// Las búsquedas piden sesión.
 pub fn require(state: &AppState, headers: &HeaderMap) -> Result<(), Failure> {
-    match state.accounts {
-        Some(_) if current(state, headers).is_none() => Err(Failure(ApiError::Login)),
-        _ => Ok(()),
-    }
+    current(state, headers).map(|_| ()).ok_or(Failure(ApiError::Login))
 }
 
 fn reject(status: StatusCode, message: &str) -> Response {
     (status, Json(json!({ "error": message }))).into_response()
 }
 
-pub async fn me(State(state): State<Shared>, headers: HeaderMap) -> Json<Value> {
-    let user = current(&state, &headers).map(|(_, name)| User { name });
-    Json(json!({ "enabled": state.accounts.is_some(), "user": user }))
+fn signed_in(state: &AppState, id: i64, name: &str, status: StatusCode) -> Response {
+    let Some(token) = random_token() else {
+        return reject(StatusCode::INTERNAL_SERVER_ERROR, "No se pudo iniciar la sesión.");
+    };
+    let max_age = SESSION_DAYS * 24 * 3600;
+    if state.store.add_session(&token_hash(&token), &id.to_string(), name, now_ms() + max_age * 1000).is_err() {
+        return reject(StatusCode::INTERNAL_SERVER_ERROR, "No se pudo iniciar la sesión.");
+    }
+    let mut response = (status, Json(json!({ "user": { "name": name } }))).into_response();
+    response.headers_mut().insert(header::SET_COOKIE, session_cookie(&token, max_age));
+    response
+}
+
+fn client_ip(headers: &HeaderMap) -> String {
+    // Solo se llega por el túnel de Cloudflare, que pone la IP real del visitante.
+    headers.get("cf-connecting-ip").and_then(|v| v.to_str().ok()).unwrap_or("local").to_string()
+}
+
+// --- Rutas ---------------------------------------------------------------------------------------
+
+pub async fn me(State(state): State<Shared>, headers: HeaderMap) -> Json<serde_json::Value> {
+    let user = current(&state, &headers).map(|(_, name)| json!({ "name": name }));
+    Json(json!({ "enabled": true, "user": user }))
 }
 
 #[derive(Deserialize)]
@@ -132,45 +233,57 @@ pub struct RegisterForm {
     password: String,
 }
 
-fn client_ip(headers: &HeaderMap) -> String {
-    // Solo se llega por el túnel de Cloudflare, que pone la IP real del visitante.
-    headers.get("cf-connecting-ip").and_then(|v| v.to_str().ok()).unwrap_or("desconocida").to_string()
-}
-
-async fn start(state: &AppState, headers: &HeaderMap, action: &str, mut body: Value) -> Response {
-    let Some(accounts) = &state.accounts else {
-        return reject(StatusCode::NOT_FOUND, "Las cuentas no están habilitadas en este servidor.");
-    };
-    body["ip"] = json!(client_ip(headers));
-    let identity = match accounts.call(action, body).await {
-        Ok(identity) => identity,
-        Err((status, message)) => return reject(status, &message),
-    };
-    let Some(token) = random_token() else {
-        return reject(StatusCode::INTERNAL_SERVER_ERROR, "No se pudo iniciar la sesión.");
-    };
-    let max_age = SESSION_DAYS * 24 * 3600;
-    if state.store.add_session(&hash(&token), &identity.sub, &identity.name, now_ms() + max_age * 1000).is_err() {
-        return reject(StatusCode::INTERNAL_SERVER_ERROR, "No se pudo iniciar la sesión.");
-    }
-    let status = if action == "crear" { StatusCode::CREATED } else { StatusCode::OK };
-    let mut response = (status, Json(json!({ "user": User { name: identity.name } }))).into_response();
-    response.headers_mut().insert(header::SET_COOKIE, session_cookie(&token, max_age));
-    response
-}
-
 pub async fn login(State(state): State<Shared>, headers: HeaderMap, Json(form): Json<LoginForm>) -> Response {
-    start(&state, &headers, "entrar", json!({ "login": form.login, "password": form.password })).await
+    let now = now_ms();
+    if state.limits.take(&format!("login:{}", client_ip(&headers)), 10, MINUTE, now) {
+        return reject(StatusCode::TOO_MANY_REQUESTS, "Demasiados intentos. Probá de nuevo en un minuto.");
+    }
+    let login = form.login.trim().to_lowercase();
+    if login.is_empty() || form.password.is_empty() || login.len() > 254 || form.password.len() > 1024 {
+        return reject(StatusCode::UNAUTHORIZED, BAD_CREDENTIALS);
+    }
+    let failures = format!("fail:{login}");
+    if state.limits.recent(&failures, 15 * MINUTE, now) >= 5 {
+        return reject(StatusCode::TOO_MANY_REQUESTS, "Demasiados intentos fallidos para esta cuenta. Probá en 15 minutos.");
+    }
+    let user = state.store.find_user(&login);
+    let stored = user.as_ref().map_or(DUMMY_HASH.to_string(), |u| u.password_hash.clone());
+    let password = form.password;
+    let ok = blocking(move || verify_password(&password, &stored)).await.unwrap_or(false);
+    match user {
+        Some(user) if ok => {
+            state.limits.clear(&failures);
+            signed_in(&state, user.id, &user.name, StatusCode::OK)
+        }
+        _ => {
+            state.limits.add(&failures, now);
+            reject(StatusCode::UNAUTHORIZED, BAD_CREDENTIALS)
+        }
+    }
 }
 
 pub async fn register(State(state): State<Shared>, headers: HeaderMap, Json(form): Json<RegisterForm>) -> Response {
-    let body = json!({ "name": form.name, "email": form.email, "password": form.password });
-    start(&state, &headers, "crear", body).await
+    let (name, email) = (form.name.trim().to_string(), form.email.trim().to_lowercase());
+    if let Err(message) = validate(&name, &email, &form.password) {
+        return reject(StatusCode::BAD_REQUEST, message);
+    }
+    if state.limits.take(&format!("register:{}", client_ip(&headers)), 5, 60 * MINUTE, now_ms()) {
+        return reject(StatusCode::TOO_MANY_REQUESTS, "Demasiadas cuentas nuevas desde tu conexión. Probá en un rato.");
+    }
+    let password = form.password;
+    let Some(Some(hash)) = blocking(move || hash_password(&password)).await else {
+        return reject(StatusCode::INTERNAL_SERVER_ERROR, "No se pudo crear la cuenta.");
+    };
+    match state.store.create_user(&name, &email, &hash, now_ms()) {
+        Ok(user) => signed_in(&state, user.id, &user.name, StatusCode::CREATED),
+        Err(Taken::Name) => reject(StatusCode::CONFLICT, "Ya existe una cuenta con ese usuario."),
+        Err(Taken::Email) => reject(StatusCode::CONFLICT, "Ya existe una cuenta con ese email."),
+    }
 }
 
 pub async fn logout(State(state): State<Shared>, headers: HeaderMap) -> Response {
     if let Some(token) = cookie_token(&headers) {
-        state.store.remove_session(&hash(&token));
+        state.store.remove_session(&token_hash(&token));
     }
     let mut response = StatusCode::NO_CONTENT.into_response();
     response.headers_mut().insert(header::SET_COOKIE, session_cookie("", 0));
@@ -180,6 +293,57 @@ pub async fn logout(State(state): State<Shared>, headers: HeaderMap) -> Response
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn derive(password: &str, salt: &str, iterations: u32, len: usize) -> String {
+        let mut out = vec![0u8; len];
+        pbkdf2(password.as_bytes(), salt.as_bytes(), iterations, &mut out);
+        hex(&out)
+    }
+
+    #[test]
+    fn pbkdf2_matches_published_vectors() {
+        assert_eq!(derive("password", "salt", 1, 32), "120fb6cffcf8b32c43e7225256c4f837a86548c92ccc35480805987cb70be17b");
+        assert_eq!(derive("password", "salt", 2, 32), "ae4d0c95af6b46d32d0adff928f06dd02a303f8ef3c251dfd6e2d85a95474c43");
+        assert_eq!(derive("password", "salt", 4096, 32), "c5e478d59288c841aa530db6845c4c8d962893a001ce4e11a4963873aa98134a");
+        // RFC 7914 §11: dos bloques de salida.
+        assert_eq!(
+            derive("passwd", "salt", 1, 64),
+            "55ac046e56e3089fec1691c22544b605f94185216dde0465e68b9d57c20dacbc49ca9cccf179b645991664b39d77ef317c71b845b1e30bd509112041d3a19783"
+        );
+    }
+
+    #[test]
+    fn hashes_and_verifies_passwords() {
+        let stored = hash_password("una clave larga").unwrap();
+        assert!(stored.starts_with("pbkdf2_sha256$600000$"));
+        assert!(verify_password("una clave larga", &stored));
+        assert!(!verify_password("otra clave", &stored));
+        assert_ne!(hash_password("una clave larga").unwrap(), stored);
+        assert!(!verify_password("x", "basura"));
+        assert!(!verify_password("x", DUMMY_HASH));
+    }
+
+    #[test]
+    fn validates_registrations() {
+        assert!(validate("Jugador_1", "j@example.com", "clave1234").is_ok());
+        assert!(validate("ab", "j@example.com", "clave1234").is_err());
+        assert!(validate("con espacio", "j@example.com", "clave1234").is_err());
+        assert!(validate("jugador", "sin-arroba", "clave1234").is_err());
+        assert!(validate("jugador", "a@b", "clave1234").is_err());
+        assert!(validate("jugador", "j@example.com", "corta").is_err());
+    }
+
+    #[test]
+    fn limits_attempts_per_window() {
+        let limits = Limits::default();
+        for _ in 0..3 {
+            assert!(!limits.take("k", 3, MINUTE, 0));
+        }
+        assert!(limits.take("k", 3, MINUTE, 10));
+        assert!(!limits.take("k", 3, MINUTE, MINUTE + 1));
+        limits.clear("k");
+        assert_eq!(limits.recent("k", MINUTE, 0), 0);
+    }
 
     #[test]
     fn reads_the_session_cookie() {
@@ -195,8 +359,6 @@ mod tests {
         let (a, b) = (random_token().unwrap(), random_token().unwrap());
         assert_eq!(a.len(), 64);
         assert_ne!(a, b);
-        assert_eq!(hash(&a).len(), 64);
-        assert_ne!(hash(&a), a);
-        assert_eq!(hash(&a), hash(&a));
+        assert_ne!(token_hash(&a), a);
     }
 }

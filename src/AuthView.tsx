@@ -108,7 +108,7 @@ export function AuthView(props: { onSignedIn: (user: WebUser) => void }) {
             <Field id="email" label="Email" type="email" value={email} onChange={setEmail} autoComplete="email" />
             <Field id="new-password" label="Contraseña" type="password" value={password} onChange={setPassword} autoComplete="new-password" />
             <Field id="new-password2" label="Repetí la contraseña" type="password" value={password2} onChange={setPassword2} autoComplete="new-password" />
-            <p className="text-xs text-muted">Usuario de 3 a 20 caracteres (letras, números, _ o -). Contraseña de 6 a 72.</p>
+            <p className="text-xs text-muted">Usuario de 3 a 20 caracteres (letras, números, _ o -). Contraseña de 8 a 128.</p>
           </>
         )}
 

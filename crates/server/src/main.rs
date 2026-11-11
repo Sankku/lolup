@@ -31,7 +31,7 @@ struct AppState {
     http: reqwest::Client,
     catalog: OnceCell<Arc<WebCatalog>>,
     store: Store,
-    accounts: Option<auth::Accounts>,
+    limits: auth::Limits,
 }
 
 fn now_ms() -> i64 {
@@ -353,11 +353,8 @@ async fn main() {
         eprintln!("No se pudo abrir la base {db_path}: {error}");
         std::process::exit(1);
     });
-    let accounts = auth::Accounts::from_env();
-    if accounts.is_none() {
-        eprintln!("Sin ACCOUNTS_*: la web queda abierta, sin ingreso.");
-    }
-    let state = Arc::new(AppState { riot: Riot::new(key), http: reqwest::Client::new(), catalog: OnceCell::new(), store, accounts });
+    let limits = auth::Limits::default();
+    let state = Arc::new(AppState { riot: Riot::new(key), http: reqwest::Client::new(), catalog: OnceCell::new(), store, limits });
     let ui = ServeDir::new("dist").fallback(ServeFile::new("dist/index.html"));
     let app = Router::new()
         .route("/api/catalog", get(get_catalog))

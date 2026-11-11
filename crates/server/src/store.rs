@@ -9,6 +9,18 @@ use std::sync::Mutex;
 
 pub struct Store(Mutex<Connection>);
 
+pub struct User {
+    pub id: i64,
+    pub name: String,
+    pub password_hash: String,
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Taken {
+    Name,
+    Email,
+}
+
 impl Store {
     pub fn open(path: &Path) -> rusqlite::Result<Self> {
         if let Some(parent) = path.parent() {
@@ -38,6 +50,14 @@ impl Store {
                  division TEXT NOT NULL,
                  lp INTEGER NOT NULL,
                  PRIMARY KEY (puuid, queue, ms)
+             );
+             CREATE TABLE IF NOT EXISTS users (
+                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                 name TEXT NOT NULL,
+                 name_lower TEXT NOT NULL UNIQUE,
+                 email TEXT NOT NULL UNIQUE,
+                 password_hash TEXT NOT NULL,
+                 created_ms INTEGER NOT NULL
              );
              CREATE TABLE IF NOT EXISTS sessions (
                  token_hash TEXT PRIMARY KEY,
@@ -88,6 +108,40 @@ impl Store {
             )?;
         }
         Ok(())
+    }
+
+    /// Crea la cuenta. `Err(Taken::Name | Taken::Email)` si el usuario o el email ya existen.
+    pub fn create_user(&self, name: &str, email: &str, password_hash: &str, now_ms: i64) -> Result<User, Taken> {
+        let db = self.0.lock().unwrap();
+        let lower = name.to_lowercase();
+        let exists = |sql: &str, value: &str| db.query_row(sql, [value], |_| Ok(())).optional().ok().flatten().is_some();
+        if exists("SELECT 1 FROM users WHERE name_lower = ?1", &lower) {
+            return Err(Taken::Name);
+        }
+        if exists("SELECT 1 FROM users WHERE email = ?1", email) {
+            return Err(Taken::Email);
+        }
+        db.execute(
+            "INSERT INTO users (name, name_lower, email, password_hash, created_ms) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![name, lower, email, password_hash, now_ms],
+        )
+        .map_err(|_| Taken::Name)?;
+        Ok(User { id: db.last_insert_rowid(), name: name.to_string(), password_hash: password_hash.to_string() })
+    }
+
+    /// Busca por usuario (sin distinguir mayúsculas) o, si tiene "@", por email.
+    pub fn find_user(&self, login: &str) -> Option<User> {
+        let db = self.0.lock().unwrap();
+        let key = login.trim().to_lowercase();
+        let sql = if key.contains('@') {
+            "SELECT id, name, password_hash FROM users WHERE email = ?1"
+        } else {
+            "SELECT id, name, password_hash FROM users WHERE name_lower = ?1"
+        };
+        db.query_row(sql, [key], |row| Ok(User { id: row.get(0)?, name: row.get(1)?, password_hash: row.get(2)? }))
+            .optional()
+            .ok()
+            .flatten()
     }
 
     /// Guarda una sesión por el hash de su token: el token en sí solo vive en la cookie.
@@ -152,6 +206,17 @@ mod tests {
         store.add_session("h2", "sub1", "Jugador", 100).unwrap();
         store.remove_session("h2");
         assert_eq!(store.session("h2", 50), None);
+    }
+
+    #[test]
+    fn users_are_unique_by_name_and_email() {
+        let store = Store::in_memory();
+        let user = store.create_user("Jugador_1", "j@example.test", "h", 1).unwrap();
+        assert_eq!(store.create_user("JUGADOR_1", "otro@example.test", "h", 1).err(), Some(Taken::Name));
+        assert_eq!(store.create_user("otro", "j@example.test", "h", 1).err(), Some(Taken::Email));
+        assert_eq!(store.find_user("jugador_1").map(|u| u.id), Some(user.id));
+        assert_eq!(store.find_user(" J@Example.test ").map(|u| u.name), Some("Jugador_1".into()));
+        assert!(store.find_user("nadie").is_none());
     }
 
     #[test]
