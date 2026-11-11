@@ -1,0 +1,7 @@
+# Túnel `lolup` (credenciales: <id>.json al lado de este archivo en la VM, fuera de git).
+tunnel: ebdf7626-ea59-4311-b435-2f9cc85aa2d3
+credentials-file: /etc/cloudflared/ebdf7626-ea59-4311-b435-2f9cc85aa2d3.json
+ingress:
+  - hostname: lolup.aoweb.net
+    service: http://lolup:3000
+  - service: http_status:404

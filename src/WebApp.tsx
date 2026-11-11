@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { type Catalog, type WebProfile, web } from './api'
+import { type AuthState, type Catalog, type WebProfile, account, web } from './api'
+import { AuthView } from './AuthView'
 import { MatchDetail, MatchList } from './MatchesView'
 import { ProfileView } from './ProfileView'
 
@@ -34,10 +35,23 @@ export function WebApp() {
   const [openGame, setOpenGame] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [auth, setAuth] = useState<AuthState | null>(null)
 
   useEffect(() => {
     web.catalog().then(setCatalog).catch((e) => setError(errorText(e)))
+    // Si el servidor no tiene cuentas (desarrollo), la web queda abierta.
+    account.me().then(setAuth).catch(() => setAuth({ enabled: false, user: null }))
   }, [])
+
+  const signedOut = auth !== null && auth.enabled && !auth.user
+
+  async function signOut() {
+    await account.logout().catch(() => {})
+    setAuth((current) => current && { ...current, user: null })
+    setData(null)
+    setRiotId('')
+    setError(null)
+  }
 
   async function search(event: FormEvent) {
     event.preventDefault()
@@ -53,6 +67,9 @@ export function WebApp() {
       setView('profile')
       setOpenGame(null)
     } catch (e) {
+      // La sesión venció: vuelve a la pantalla de ingreso.
+      const status = await account.me().catch(() => null)
+      if (status?.enabled && !status.user) setAuth(status)
       setError(errorText(e))
     } finally {
       setBusy(false)
@@ -65,7 +82,7 @@ export function WebApp() {
         <span className="font-display text-2xl font-black tracking-tight">
           LOLUP<span className="text-signal">.</span>
         </span>
-        {data && (
+        {data && !signedOut && (
           <nav className="flex gap-1" aria-label="Secciones">
             {(['profile', 'matches'] as const).map((id) => (
               <button
@@ -82,6 +99,15 @@ export function WebApp() {
             ))}
           </nav>
         )}
+        {auth?.user && (
+          <div className="flex items-center gap-3 text-sm sm:order-last">
+            <span className="text-muted">{auth.user.name}</span>
+            <button onClick={signOut} className="text-muted underline-offset-4 hover:text-paper hover:underline">
+              Salir
+            </button>
+          </div>
+        )}
+        {auth && !signedOut && (
         <form onSubmit={search} className="ml-auto flex gap-2" role="search">
           <label className="sr-only" htmlFor="platform">Región</label>
           <select
@@ -107,11 +133,19 @@ export function WebApp() {
             {busy ? 'Buscando…' : 'Buscar'}
           </button>
         </form>
+        )}
       </header>
 
       <main className="flex-1 px-5 py-7 sm:px-8">
-        {error && <p role="alert" className="mx-auto mb-5 max-w-5xl border-l-4 border-loss bg-panel px-4 py-3 text-sm">{error}</p>}
-        {!data || !catalog ? (
+        {!signedOut && error && <p role="alert" className="mx-auto mb-5 max-w-5xl border-l-4 border-loss bg-panel px-4 py-3 text-sm">{error}</p>}
+        {auth === null ? null : signedOut ? (
+          <AuthView
+            onSignedIn={(user) => {
+              setAuth({ enabled: true, user })
+              setError(null)
+            }}
+          />
+        ) : !data || !catalog ? (
           <section className="rise mx-auto max-w-3xl pt-10">
             <h1 className="font-display text-6xl leading-none font-black uppercase sm:text-7xl">
               Buscá cualquier <span className="text-signal">invocador.</span>

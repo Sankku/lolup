@@ -1,0 +1,35 @@
+# LolUp web en producción (lolup.aoweb.net), en la VM de Lightsail `aura-prod` junto a AURA y AURORA.
+# `docker compose up -d` deja todo listo. Al lado de este archivo, en la VM (~/lolup), fuera de git:
+#   .env                     → ver .env.example (key de Riot)
+#   cloudflared/config.yml   → copia de deploy/cloudflared/config.yml
+#   cloudflared/<id>.json    → credenciales del túnel `lolup`
+#
+# - lolup:       el servidor. Escucha en 0.0.0.0:3000 DENTRO del contenedor, sin puertos publicados: solo
+#                entra el túnel (http://lolup:3000). Caché, LP, cuentas y sesiones viven en el volumen /data.
+# - cloudflared: el conector del túnel `lolup`.
+# Deploy continuo: el Watchtower de AURA vigila todos los contenedores del host. Merge a main → CI
+# publica ghcr.io/sankku/lolup:latest → la VM se actualiza sola (~1 min).
+
+services:
+  lolup:
+    image: ghcr.io/sankku/lolup:latest
+    restart: unless-stopped
+    environment:
+      - RIOT_API_KEY=${RIOT_API_KEY:-}
+    volumes:
+      - lolup-data:/data
+    mem_limit: 128m
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    # Las credenciales quedan 600 del usuario `ubuntu` (1000): el conector corre como ese usuario.
+    user: '1000:1000'
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
+    depends_on:
+      - lolup
+
+volumes:
+  lolup-data:

@@ -37,6 +37,10 @@ pub enum ApiError {
     NotFound,
     Key,
     Limit,
+    /// El servidor arrancó sin `RIOT_API_KEY`: la interfaz carga, pero no puede buscar.
+    MissingKey,
+    /// Hay cuentas configuradas y el pedido no trae una sesión vigente.
+    Login,
     Other(String),
 }
 
@@ -46,6 +50,8 @@ impl ApiError {
             ApiError::NotFound => StatusCode::NOT_FOUND,
             ApiError::Key => StatusCode::BAD_GATEWAY,
             ApiError::Limit => StatusCode::TOO_MANY_REQUESTS,
+            ApiError::MissingKey => StatusCode::SERVICE_UNAVAILABLE,
+            ApiError::Login => StatusCode::UNAUTHORIZED,
             ApiError::Other(_) => StatusCode::BAD_GATEWAY,
         }
     }
@@ -55,6 +61,8 @@ impl ApiError {
             ApiError::NotFound => "No se encontró ese jugador o esa partida.".into(),
             ApiError::Key => "La key de Riot no es válida o venció. Generá una nueva en el portal.".into(),
             ApiError::Limit => "Se alcanzó el límite de consultas a Riot. Probá de nuevo en un rato.".into(),
+            ApiError::MissingKey => "El servidor todavía no tiene una key de Riot configurada.".into(),
+            ApiError::Login => "Iniciá sesión para buscar jugadores.".into(),
             ApiError::Other(message) => message.clone(),
         }
     }
@@ -71,24 +79,25 @@ pub fn url(host: &str, segments: &[&str], query: &[(&str, &str)]) -> Url {
 
 pub struct Riot {
     http: reqwest::Client,
-    key: String,
+    key: Option<String>,
     // ponytail: límite fijo de concurrencia. Reemplazar por una cola por región y método (W4).
     slots: Semaphore,
 }
 
 impl Riot {
-    pub fn new(key: String) -> Self {
+    pub fn new(key: Option<String>) -> Self {
         Self { http: reqwest::Client::new(), key, slots: Semaphore::new(5) }
     }
 
     pub async fn get(&self, host: &str, segments: &[&str], query: &[(&str, &str)]) -> Result<Value, ApiError> {
+        let key = self.key.as_deref().ok_or(ApiError::MissingKey)?;
         let url = url(host, segments, query);
         let _slot = self.slots.acquire().await.map_err(|_| ApiError::Other("Servidor cerrándose.".into()))?;
         for _ in 0..3 {
             let response = self
                 .http
                 .get(url.clone())
-                .header("X-Riot-Token", &self.key)
+                .header("X-Riot-Token", key)
                 .send()
                 .await
                 .map_err(|_| ApiError::Other("No se pudo conectar con Riot.".into()))?;
