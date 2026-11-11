@@ -27,6 +27,8 @@ services:
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
     command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    # Las credenciales quedan 600 del usuario `ubuntu` (1000): el conector corre como ese usuario.
+    user: '1000:1000'
     volumes:
       - ./cloudflared:/etc/cloudflared:ro
     depends_on:
