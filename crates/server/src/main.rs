@@ -1,11 +1,13 @@
 //! Servidor de la web: busca jugadores con la API de Riot y sirve la interfaz.
 
+mod auth;
 mod riot;
 mod store;
 
 use axum::extract::{Query, State};
+use axum::http::HeaderMap;
 use axum::response::{IntoResponse, Response};
-use axum::routing::get;
+use axum::routing::{get, post};
 use axum::{Json, Router};
 use futures_util::future::join_all;
 use lolup_core::game::{self, Detail, Mastery, MatchRow, Names, Rank, Summary};
@@ -29,6 +31,7 @@ struct AppState {
     http: reqwest::Client,
     catalog: OnceCell<Arc<WebCatalog>>,
     store: Store,
+    accounts: Option<auth::Accounts>,
 }
 
 fn now_ms() -> i64 {
@@ -234,7 +237,12 @@ fn checked_riot_id(name: &str, tag: &str) -> Result<(), Failure> {
     if name_ok && tag_ok { Ok(()) } else { Err(bad("El Riot ID tiene que tener la forma Nombre#TAG.")) }
 }
 
-async fn profile(State(state): State<Shared>, Query(q): Query<ProfileQuery>) -> Result<Json<ProfileResponse>, Failure> {
+async fn profile(
+    State(state): State<Shared>,
+    headers: HeaderMap,
+    Query(q): Query<ProfileQuery>,
+) -> Result<Json<ProfileResponse>, Failure> {
+    auth::require(&state, &headers)?;
     let platform = q.platform.to_lowercase();
     let (region, account_host) = checked_platform(&platform)?;
     let (name, tag) = (q.name.trim(), q.tag.trim().trim_start_matches('#'));
@@ -306,7 +314,8 @@ struct MatchQuery {
     puuid: String,
 }
 
-async fn match_detail(State(state): State<Shared>, Query(q): Query<MatchQuery>) -> Result<Json<Detail>, Failure> {
+async fn match_detail(State(state): State<Shared>, headers: HeaderMap, Query(q): Query<MatchQuery>) -> Result<Json<Detail>, Failure> {
+    auth::require(&state, &headers)?;
     let platform = q.platform.to_lowercase();
     let (region, _) = checked_platform(&platform)?;
     let match_id = format!("{}_{}", platform.to_uppercase(), q.id);
@@ -334,26 +343,40 @@ fn riot_key() -> Option<String> {
 
 #[tokio::main]
 async fn main() {
-    let Some(key) = riot_key() else {
-        eprintln!("Falta RIOT_API_KEY en el entorno o en el archivo .env.");
-        std::process::exit(1);
-    };
+    let key = riot_key();
+    if key.is_none() {
+        // Arranca igual: la interfaz carga y cada búsqueda explica qué falta, en vez de reiniciarse en bucle.
+        eprintln!("Falta RIOT_API_KEY en el entorno o en el archivo .env: las búsquedas van a fallar hasta cargarla.");
+    }
     let db_path = std::env::var("LOLUP_DB").unwrap_or_else(|_| "data/lolup.db".into());
     let store = Store::open(std::path::Path::new(&db_path)).unwrap_or_else(|error| {
         eprintln!("No se pudo abrir la base {db_path}: {error}");
         std::process::exit(1);
     });
-    let state = Arc::new(AppState { riot: Riot::new(key), http: reqwest::Client::new(), catalog: OnceCell::new(), store });
+    let accounts = auth::Accounts::from_env();
+    if accounts.is_none() {
+        eprintln!("Sin ACCOUNTS_*: la web queda abierta, sin ingreso.");
+    }
+    let state = Arc::new(AppState { riot: Riot::new(key), http: reqwest::Client::new(), catalog: OnceCell::new(), store, accounts });
     let ui = ServeDir::new("dist").fallback(ServeFile::new("dist/index.html"));
     let app = Router::new()
         .route("/api/catalog", get(get_catalog))
         .route("/api/profile", get(profile))
         .route("/api/match", get(match_detail))
+        .route("/api/auth/me", get(auth::me))
+        .route("/api/auth/login", post(auth::login))
+        .route("/api/auth/register", post(auth::register))
+        .route("/api/auth/logout", post(auth::logout))
         .fallback_service(ui)
         .with_state(state);
     // Solo local mientras se use la key personal: Riot no permite exponerla al público.
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await.expect("puerto 3000 libre");
-    println!("LolUp web en http://127.0.0.1:3000");
+    // En el contenedor se bindea a 0.0.0.0 sin publicar puertos: solo entra el túnel, detrás de Access.
+    let addr = std::env::var("LOLUP_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".into());
+    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap_or_else(|error| {
+        eprintln!("No se pudo escuchar en {addr}: {error}");
+        std::process::exit(1);
+    });
+    println!("LolUp web en http://{addr}");
     axum::serve(listener, app).await.expect("servidor");
 }
 

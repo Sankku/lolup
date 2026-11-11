@@ -28,6 +28,15 @@ ANTHROPIC_API_KEY=tu_key pnpm tauri dev
 
 `Ctrl+Alt+D` muestra u oculta el overlay.
 
+## Web
+
+```bash
+pnpm build
+RIOT_API_KEY=tu_key cargo run -p lolup-server   # http://127.0.0.1:3000
+```
+
+Producción en <https://lolup.aoweb.net>: imagen Docker publicada por CI y deploy automático. Ver [docs/DEPLOY.md](docs/DEPLOY.md).
+
 ## Tests
 
 ```bash

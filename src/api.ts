@@ -143,6 +143,28 @@ async function api<T>(path: string, params: Record<string, string>): Promise<T> 
   return body as T
 }
 
+export type WebUser = { name: string }
+export type AuthState = { enabled: boolean; user: WebUser | null }
+
+async function send<T>(path: string, body?: unknown): Promise<T> {
+  const response = await fetch(`/api/auth/${path}`, {
+    method: 'POST',
+    headers: body === undefined ? {} : { 'content-type': 'application/json' },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  const data = await response.json().catch(() => ({}))
+  if (!response.ok) throw data.error ?? 'El servidor no respondió.'
+  return data as T
+}
+
+export const account = {
+  me: () => api<AuthState>('auth/me', {}),
+  login: (login: string, password: string) => send<{ user: WebUser }>('login', { login, password }),
+  register: (name: string, email: string, password: string) =>
+    send<{ user: WebUser }>('register', { name, email, password }),
+  logout: () => fetch('/api/auth/logout', { method: 'POST' }),
+}
+
 export const web = {
   catalog: () => api<Catalog>('catalog', {}),
   profile: (platform: string, name: string, tag: string) => api<WebProfile>('profile', { platform, name, tag }),

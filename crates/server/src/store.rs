@@ -38,6 +38,12 @@ impl Store {
                  division TEXT NOT NULL,
                  lp INTEGER NOT NULL,
                  PRIMARY KEY (puuid, queue, ms)
+             );
+             CREATE TABLE IF NOT EXISTS sessions (
+                 token_hash TEXT PRIMARY KEY,
+                 sub TEXT NOT NULL,
+                 name TEXT NOT NULL,
+                 expires_ms INTEGER NOT NULL
              );",
         )?;
         Ok(Self(Mutex::new(connection)))
@@ -83,6 +89,31 @@ impl Store {
         }
         Ok(())
     }
+
+    /// Guarda una sesión por el hash de su token: el token en sí solo vive en la cookie.
+    pub fn add_session(&self, token_hash: &str, sub: &str, name: &str, expires_ms: i64) -> rusqlite::Result<()> {
+        let db = self.0.lock().unwrap();
+        db.execute(
+            "INSERT OR REPLACE INTO sessions (token_hash, sub, name, expires_ms) VALUES (?1, ?2, ?3, ?4)",
+            params![token_hash, sub, name, expires_ms],
+        )?;
+        Ok(())
+    }
+
+    /// Devuelve `(sub, name)` si la sesión existe y no venció. Aprovecha para borrar las vencidas.
+    pub fn session(&self, token_hash: &str, now_ms: i64) -> Option<(String, String)> {
+        let db = self.0.lock().unwrap();
+        let _ = db.execute("DELETE FROM sessions WHERE expires_ms <= ?1", [now_ms]);
+        db.query_row("SELECT sub, name FROM sessions WHERE token_hash = ?1", [token_hash], |row| Ok((row.get(0)?, row.get(1)?)))
+            .optional()
+            .ok()
+            .flatten()
+    }
+
+    pub fn remove_session(&self, token_hash: &str) {
+        let db = self.0.lock().unwrap();
+        let _ = db.execute("DELETE FROM sessions WHERE token_hash = ?1", [token_hash]);
+    }
 }
 
 #[cfg(test)]
@@ -109,6 +140,18 @@ mod tests {
         store.add_lp("b", &[snapshot(2, 50)]).unwrap();
         let history = store.lp_history("b");
         assert_eq!(history.iter().map(|s| (s.ms, s.lp)).collect::<Vec<_>>(), [(1, 40), (2, 50)]);
+    }
+
+    #[test]
+    fn sessions_expire() {
+        let store = Store::in_memory();
+        store.add_session("h", "sub1", "Jugador", 100).unwrap();
+        assert_eq!(store.session("h", 50), Some(("sub1".into(), "Jugador".into())));
+        assert_eq!(store.session("otro", 50), None);
+        assert_eq!(store.session("h", 100), None);
+        store.add_session("h2", "sub1", "Jugador", 100).unwrap();
+        store.remove_session("h2");
+        assert_eq!(store.session("h2", 50), None);
     }
 
     #[test]
